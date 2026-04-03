@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProShop · GraphQL Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0c0e15; --bg2:#121520; --bg3:#191d2b; --bg4:#20253a;
+  --surface:#1c2133; --s2:#232a3f;
+  --border:rgba(255,255,255,0.06); --border2:rgba(255,255,255,0.12); --border3:rgba(255,255,255,0.20);
+  --accent:#4f8ef7; --a2:#6c63ff; --a3:#00d4aa;
+  --warn:#f5a623; --danger:#ff5c5c; --success:#2ecc9a;
+  --text:#e4e8f5; --text2:#8e97b4; --text3:#4f5878;
+  --mono:'JetBrains Mono',monospace; --sans:'DM Sans',sans-serif; --display:'Syne',sans-serif;
+  --tab-h:40px; --hdr-h:54px;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);display:flex;flex-direction:column;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;}
+.login-card{width:440px;background:var(--bg2);border:1px solid var(--border2);border-radius:18px;padding:36px 36px 32px;box-shadow:0 24px 80px rgba(0,0,0,.6);}
+.login-logo{font-family:var(--display);font-size:22px;font-weight:800;background:linear-gradient(120deg,var(--accent),var(--a3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;}
+.login-sub{font-size:13px;color:var(--text3);margin-bottom:26px;}
+.form-label{display:block;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 13px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;transition:border-color .15s;margin-bottom:13px;}
+.form-input:focus{border-color:var(--accent);}
+.form-input::placeholder{color:var(--text3);}
+.form-input.mono{font-family:var(--mono);font-size:12px;}
+.auth-toggle{display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px;margin-bottom:18px;gap:3px;}
+.auth-btn{flex:1;padding:7px;border:none;border-radius:6px;font-family:var(--sans);font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s;background:transparent;color:var(--text3);}
+.auth-btn.active{background:var(--surface);color:var(--text);}
+.btn-connect{width:100%;padding:12px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-connect:hover{background:#6ba3ff;transform:translateY(-1px);}
+.btn-connect:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.login-error{margin-top:13px;padding:10px 13px;background:rgba(255,92,92,.1);border:1px solid rgba(255,92,92,.3);border-radius:7px;font-size:13px;color:var(--danger);display:none;}
+.scope-hint{font-size:11px;color:var(--text3);margin-top:-9px;margin-bottom:13px;line-height:1.5;}
+
+/* HEADER */
+.header{height:var(--hdr-h);background:var(--bg2);border-bottom:1px solid var(--border2);display:flex;align-items:center;padding:0 18px;gap:12px;flex-shrink:0;z-index:100;}
+.logo{font-family:var(--display);font-weight:800;font-size:17px;letter-spacing:-.3px;background:linear-gradient(120deg,var(--accent),var(--a3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.logo-badge{font-size:9.5px;font-weight:700;background:var(--bg4);color:var(--text3);padding:2px 7px;border-radius:4px;border:1px solid var(--border2);letter-spacing:.6px;-webkit-text-fill-color:var(--text3);}
+.hdr-spacer{flex:1;}
+.hdr-status{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text3);}
+.hdr-dot{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:blink 2.5s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.hdr-user{font-size:12px;color:var(--text2);padding:5px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;gap:6px;}
+.btn-disconnect{padding:6px 13px;background:transparent;border:1px solid var(--border2);border-radius:7px;color:var(--text3);font-family:var(--sans);font-size:12px;cursor:pointer;transition:all .15s;}
+.btn-disconnect:hover{border-color:var(--danger);color:var(--danger);}
+.btn-new-tab{display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;}
+.btn-new-tab:hover{background:#6ba3ff;transform:translateY(-1px);}
+
+/* TABS */
+.tab-bar{display:flex;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 8px;gap:2px;min-height:var(--tab-h);flex-shrink:0;overflow-x:auto;scrollbar-width:none;}
+.tab-bar::-webkit-scrollbar{display:none;}
+.tab{display:flex;align-items:center;gap:8px;padding:0 14px 0 11px;height:var(--tab-h);background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text3);font-family:var(--sans);font-size:13px;cursor:pointer;white-space:nowrap;transition:all .14s;border-radius:6px 6px 0 0;}
+.tab:hover{color:var(--text2);background:var(--bg3);}
+.tab.active{color:var(--text);background:var(--bg3);border-bottom-color:var(--accent);}
+.tab-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.tab-close{width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;opacity:0;font-size:13px;transition:opacity .14s;color:var(--text3);cursor:pointer;margin-left:2px;}
+.tab:hover .tab-close{opacity:1;}
+.tab-close:hover{background:var(--bg4);color:var(--danger);}
+
+/* WORKSPACE */
+.workspace{flex:1;display:flex;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:275px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-sec{padding:12px 14px 10px;border-bottom:1px solid var(--border);}
+.sidebar-lbl{font-size:9.5px;font-weight:700;letter-spacing:1px;color:var(--text3);text-transform:uppercase;margin-bottom:8px;}
+.preset-item{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;transition:background .12s;font-size:12.5px;color:var(--text2);}
+.preset-item:hover{background:var(--bg3);color:var(--text);}
+.pi-icon{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.schema-explorer{flex:1;overflow-y:auto;padding:10px 12px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+.schema-type{color:var(--a2);font-size:9.5px;font-weight:700;margin:10px 6px 4px;letter-spacing:.7px;text-transform:uppercase;}
+.schema-node{padding:4px 8px;border-radius:5px;font-size:11.5px;font-family:var(--mono);color:var(--text3);cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:6px;}
+.schema-node:hover{background:var(--bg3);color:var(--accent);}
+.sn-type{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg4);color:var(--text3);font-weight:700;letter-spacing:.3px;flex-shrink:0;}
+
+/* PANEL */
+.panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.editor-section{display:flex;flex-direction:column;border-bottom:1px solid var(--border2);background:var(--bg2);flex-shrink:0;}
+.editor-toolbar{display:flex;align-items:center;padding:8px 14px;gap:8px;border-bottom:1px solid var(--border);}
+.editor-lbl{font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.5px;}
+.var-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;font-size:11.5px;}
+.var-chip label{color:var(--text3);}
+.var-chip select,.var-chip input{background:transparent;border:none;color:var(--text);font-family:var(--sans);font-size:11.5px;outline:none;cursor:pointer;}
+.var-chip select option{background:var(--bg3);}
+.btn-run{display:flex;align-items:center;gap:7px;padding:8px 18px;background:var(--accent);border:none;border-radius:7px;color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+.btn-run:hover{background:#6ba3ff;transform:translateY(-1px);box-shadow:0 4px 16px rgba(79,142,247,.3);}
+.btn-run:active{transform:none;}
+.btn-run:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-save{padding:8px 13px;background:transparent;border:1px solid var(--border2);border-radius:7px;color:var(--text2);font-family:var(--sans);font-size:12px;cursor:pointer;transition:all .15s;}
+.btn-save:hover{border-color:var(--accent);color:var(--accent);}
+.code-editor{width:100%;min-height:150px;max-height:210px;background:var(--bg);border:none;color:#c9d1e8;font-family:var(--mono);font-size:13px;line-height:1.75;padding:14px 18px;resize:vertical;outline:none;overflow-y:auto;display:block;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+
+/* RESULTS */
+.results-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.results-toolbar{display:flex;align-items:center;padding:8px 14px;gap:10px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;}
+.rtabs{display:flex;gap:2px;}
+.rtab{padding:5px 13px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text3);transition:all .12s;border:none;background:transparent;}
+.rtab:hover{background:var(--bg3);color:var(--text2);}
+.rtab.active{background:var(--bg4);color:var(--text);}
+.results-meta{margin-left:auto;font-size:11.5px;color:var(--text3);display:flex;align-items:center;gap:12px;}
+.badge{padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;}
+.badge-ok{background:rgba(46,204,154,.15);color:var(--success);}
+.badge-err{background:rgba(255,92,92,.15);color:var(--danger);}
+.results-content{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+
+/* EMPTY / LOADING */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;padding:40px;text-align:center;}
+.empty-icon{font-size:44px;opacity:.2;}
+.empty-title{font-family:var(--display);font-size:19px;font-weight:700;color:var(--text2);}
+.empty-sub{font-size:13px;color:var(--text3);max-width:340px;line-height:1.65;}
+.shortcut-pills{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:8px;}
+.spill{padding:5px 13px;background:var(--surface);border:1px solid var(--border2);border-radius:20px;font-size:12px;color:var(--text2);cursor:pointer;transition:all .14s;font-family:var(--mono);}
+.spill:hover{border-color:var(--accent);color:var(--accent);background:rgba(79,142,247,.08);}
+.loading-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:260px;gap:13px;color:var(--text3);font-size:13px;}
+.spinner{width:30px;height:30px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* DASHBOARD */
+.metric-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:12px 14px 0;}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px;}
+.mc-lbl{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.3px;text-transform:uppercase;margin-bottom:5px;}
+.mc-val{font-family:var(--display);font-size:26px;font-weight:700;letter-spacing:-.5px;line-height:1;}
+.mc-delta{font-size:10.5px;margin-top:4px;color:var(--text3);}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px;}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:9px;}
+.chart-card.fw{grid-column:1/-1;}
+.cc-ttl{font-family:var(--display);font-size:13px;font-weight:600;color:var(--text);}
+.cc-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.cc-hdr{display:flex;align-items:flex-start;justify-content:space-between;}
+.chart-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:2px;}
+.lg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);}
+.lg-sw{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+
+/* PROGRESS BARS */
+.pb-row{display:flex;align-items:center;gap:9px;margin-bottom:6px;}
+.pb-lbl{font-size:11px;color:var(--text2);width:165px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.pb-track{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.pb-fill{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+.pb-val{font-size:10.5px;font-family:var(--mono);color:var(--text3);width:38px;text-align:right;flex-shrink:0;}
+
+/* TABLE */
+.tbl-wrap{padding:14px;overflow-x:auto;}
+.data-tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+.data-tbl th{text-align:left;padding:8px 11px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border2);background:var(--bg2);position:sticky;top:0;z-index:2;}
+.data-tbl td{padding:7px 11px;border-bottom:1px solid var(--border);color:var(--text2);font-family:var(--mono);font-size:11.5px;}
+.data-tbl tr:hover td{background:var(--surface);color:var(--text);}
+.st{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;}
+.st-active{background:rgba(46,204,154,.15);color:var(--success);}
+.st-hold{background:rgba(255,92,92,.15);color:var(--danger);}
+.st-exp{background:rgba(79,142,247,.15);color:var(--accent);}
+
+/* JSON */
+.json-view{padding:14px;font-family:var(--mono);font-size:12px;line-height:1.85;color:var(--text2);white-space:pre-wrap;word-break:break-word;}
+.jk{color:#82aaff;} .js{color:#c3e88d;} .jn{color:#f78c6c;} .jb{color:#c792ea;} .jnull{color:#546e7a;}
+
+/* GANTT */
+.gantt-hdr{display:flex;align-items:center;gap:8px;padding:0 0 6px;border-bottom:1px solid var(--border2);margin-bottom:4px;}
+.gantt-row{display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--border);}
+.gantt-wo{font-size:10.5px;color:var(--text2);width:90px;flex-shrink:0;font-family:var(--mono);}
+.gantt-bar-wrap{flex:1;height:18px;background:var(--bg3);border-radius:3px;overflow:hidden;position:relative;}
+.gantt-bar{height:100%;border-radius:3px;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;font-size:9.5px;color:rgba(255,255,255,.7);font-weight:700;transition:width .9s cubic-bezier(.4,0,.2,1);}
+.gantt-date{font-size:10px;color:var(--text3);width:60px;text-align:right;font-family:var(--mono);flex-shrink:0;}
+
+/* ERROR */
+.error-banner{margin:14px;padding:13px 16px;background:rgba(255,92,92,.08);border:1px solid rgba(255,92,92,.25);border-radius:9px;font-size:13px;color:var(--danger);white-space:pre-wrap;font-family:var(--mono);}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════ LOGIN ════════════════════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">ProShop Playground</div>
+    <div class="login-sub">Connect to your ProShop instance to begin querying</div>
+
+    <label class="form-label">ProShop URL</label>
+    <input id="loginRoot" class="form-input" type="url" placeholder="https://yourco.adionsystems.com">
+
+    <label class="form-label">Auth Method</label>
+    <div class="auth-toggle">
+      <button class="auth-btn active" id="btnModePass" onclick="setMode('password')">Username / Password</button>
+      <button class="auth-btn" id="btnModeCred" onclick="setMode('credentials')">Client Credentials</button>
+    </div>
+
+    <div id="fieldsPass">
+      <label class="form-label">Email</label>
+      <input id="loginUser" class="form-input" type="email" placeholder="janedoe@yourco.com" autocomplete="username">
+      <label class="form-label">Password</label>
+      <input id="loginPass" class="form-input" type="password" placeholder="••••••••••••" autocomplete="current-password">
+      <label class="form-label">Scope <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <input id="loginScopePass" class="form-input mono" value="workorders:rw parts:r users:r contacts:r invoices:r">
+      <p class="scope-hint">Space-delimited. Example: workorders:rw parts:r users:r</p>
+    </div>
+
+    <div id="fieldsCred" style="display:none">
+      <label class="form-label">Client ID</label>
+      <input id="loginClientId" class="form-input mono" placeholder="XXXX-XXXX-XXXX">
+      <label class="form-label">Client Secret</label>
+      <input id="loginClientSecret" class="form-input mono" type="password" placeholder="64-character hex secret">
+      <label class="form-label">Scope <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <input id="loginScopeCred" class="form-input mono" value="workorders:rw parts:r users:r contacts:r invoices:r">
+      <p class="scope-hint">Leave blank to use the authorization's maximum scope.</p>
+    </div>
+
+    <button class="btn-connect" id="btnConnect" onclick="doConnect()">Connect to ProShop</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ════════════════════ APP ════════════════════ -->
+<div class="header" id="appHeader" style="display:none">
+  <span class="logo">ProShop</span>
+  <span class="logo-badge">GRAPHQL PLAYGROUND</span>
+  <div class="hdr-spacer"></div>
+  <div class="hdr-status"><div class="hdr-dot"></div><span id="hdrRoot" style="font-size:11px;font-family:var(--mono);color:var(--accent)"></span></div>
+  <div class="hdr-user" id="hdrUser"></div>
+  <button class="btn-disconnect" onclick="doDisconnect()">Disconnect</button>
+  <button class="btn-new-tab" onclick="addTab()">＋ New Query</button>
+</div>
+
+<div class="tab-bar" id="tabBar" style="display:none"></div>
+
+<div class="workspace" id="appWorkspace" style="display:none">
+  <div class="sidebar">
+    <div class="sidebar-sec">
+      <div class="sidebar-lbl">Quick Presets</div>
+      <div id="presetList">
+        <div class="preset-item" onclick="loadPreset('capacityOps')"><div class="pi-icon" style="background:rgba(79,142,247,.15);color:var(--accent)">⚙</div>Capacity Ops 2026</div>
+        <div class="preset-item" onclick="loadPreset('activeWOs')"><div class="pi-icon" style="background:rgba(46,204,154,.15);color:var(--success)">✓</div>Active Work Orders</div>
+        <div class="preset-item" onclick="loadPreset('wcLoaded')"><div class="pi-icon" style="background:rgba(245,166,35,.15);color:var(--warn)">⚡</div>Work Center Load</div>
+        <div class="preset-item" onclick="loadPreset('opEfficiency')"><div class="pi-icon" style="background:rgba(108,99,255,.15);color:var(--a2)">≡</div>Op Efficiency</div>
+        <div class="preset-item" onclick="loadPreset('recentUpdates')"><div class="pi-icon" style="background:rgba(0,212,170,.15);color:var(--a3)">↻</div>Recent Updates</div>
+        <div class="preset-item" onclick="loadPreset('contacts')"><div class="pi-icon" style="background:rgba(255,92,92,.15);color:var(--danger)">👤</div>Contacts</div>
+      </div>
+    </div>
+    <div class="sidebar-sec" style="flex:1;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0;border-bottom:none">
+      <div class="sidebar-lbl">Schema Reference</div>
+      <div class="schema-explorer">
+        <div class="schema-type">QUERY ROOT</div>
+        <div class="schema-node" onclick="ins('workOrders')"><span class="sn-type">L</span>workOrders</div>
+        <div class="schema-node" onclick="ins('parts')"><span class="sn-type">L</span>parts</div>
+        <div class="schema-node" onclick="ins('contacts')"><span class="sn-type">L</span>contacts</div>
+        <div class="schema-node" onclick="ins('users')"><span class="sn-type">L</span>users</div>
+        <div class="schema-node" onclick="ins('invoices')"><span class="sn-type">L</span>invoices</div>
+        <div class="schema-node" onclick="ins('quotes')"><span class="sn-type">L</span>quotes</div>
+        <div class="schema-node" onclick="ins('purchaseOrders')"><span class="sn-type">L</span>purchaseOrders</div>
+        <div class="schema-type">WORK ORDER</div>
+        <div class="schema-node" onclick="ins('workOrderNumber')"><span class="sn-type">S</span>workOrderNumber</div>
+        <div class="schema-node" onclick="ins('status')"><span class="sn-type">S</span>status</div>
+        <div class="schema-node" onclick="ins('year')"><span class="sn-type">S</span>year</div>
+        <div class="schema-node" onclick="ins('mustLeaveBy')"><span class="sn-type">D</span>mustLeaveBy</div>
+        <div class="schema-node" onclick="ins('lastModifiedTime')"><span class="sn-type">D</span>lastModifiedTime</div>
+        <div class="schema-node" onclick="ins('part { partNumber }')"><span class="sn-type">O</span>part</div>
+        <div class="schema-type">OPERATIONS</div>
+        <div class="schema-node" onclick="ins('ops(pageSize: 200, pageStart: 0)')"><span class="sn-type">L</span>ops</div>
+        <div class="schema-node" onclick="ins('operationNumber')"><span class="sn-type">I</span>operationNumber</div>
+        <div class="schema-node" onclick="ins('isOpComplete')"><span class="sn-type">B</span>isOpComplete</div>
+        <div class="schema-node" onclick="ins('runTime')"><span class="sn-type">F</span>runTime</div>
+        <div class="schema-node" onclick="ins('runTimeSpent')"><span class="sn-type">F</span>runTimeSpent</div>
+        <div class="schema-node" onclick="ins('setupTime')"><span class="sn-type">F</span>setupTime</div>
+        <div class="schema-node" onclick="ins('setupTimeSpent')"><span class="sn-type">F</span>setupTimeSpent</div>
+        <div class="schema-type">WORK CENTER</div>
+        <div class="schema-node" onclick="ins('workCenter { commonName department }')"><span class="sn-type">O</span>workCenter</div>
+        <div class="schema-type">PAGINATION</div>
+        <div class="schema-node" onclick="ins('pageSize: 50')"><span class="sn-type">I</span>pageSize</div>
+        <div class="schema-node" onclick="ins('pageStart: 0')"><span class="sn-type">I</span>pageStart</div>
+        <div class="schema-node" onclick="ins('totalRecords')"><span class="sn-type">I</span>totalRecords</div>
+        <div class="schema-type">FILTERS</div>
+        <div class="schema-node" onclick="ins('filter: { status: [&quot;Active&quot;] }')"><span class="sn-type">F</span>filter.status</div>
+        <div class="schema-node" onclick="ins('filter: { year: [&quot;2026&quot;] }')"><span class="sn-type">F</span>filter.year</div>
+        <div class="schema-node" onclick="ins('filter: { lastModifiedTime: { greaterThan: &quot;20260101T000000Z&quot; } }')"><span class="sn-type">F</span>filter.lastModifiedTime</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel" id="mainPanel"></div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let SESSION_KEY=null,SESSION_ROOT='',SESSION_USER='',authMode='password';
+const PRESETS={
+  capacityOps:{name:'Capacity Ops 2026',color:'#4f8ef7',query:`query CapacityOps2026 {\n  workOrders(\n    filter: { status: ["Active"], year: ["2026"] }\n    pageSize: 50\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      workOrderNumber\n      status\n      year\n      mustLeaveBy\n      part { partNumber }\n      ops(pageSize: 200, pageStart: 0) {\n        records {\n          operationNumber\n          isOpComplete\n          runTime\n          runTimeSpent\n          setupTime\n          setupTimeSpent\n          workCenter { commonName department }\n        }\n      }\n    }\n  }\n}`},
+  activeWOs:{name:'Active Work Orders',color:'#2ecc9a',query:`query ActiveWorkOrders {\n  workOrders(\n    filter: { status: ["Active"] }\n    pageSize: 50\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      workOrderNumber\n      status\n      year\n      mustLeaveBy\n      part { partNumber }\n    }\n  }\n}`},
+  wcLoaded:{name:'Work Center Load',color:'#f5a623',query:`query WorkCenterLoaded {\n  workOrders(\n    filter: { status: ["Active", "Expected"] }\n    pageSize: 100\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      workOrderNumber\n      ops(pageSize: 200, pageStart: 0) {\n        records {\n          runTime\n          runTimeSpent\n          setupTime\n          setupTimeSpent\n          isOpComplete\n          workCenter { commonName department }\n        }\n      }\n    }\n  }\n}`},
+  opEfficiency:{name:'Op Efficiency',color:'#6c63ff',query:`query OperationEfficiency {\n  workOrders(\n    filter: { status: ["Active"] }\n    pageSize: 30\n    pageStart: 0\n  ) {\n    records {\n      workOrderNumber\n      ops(pageSize: 200, pageStart: 0) {\n        records {\n          operationNumber\n          isOpComplete\n          runTime\n          runTimeSpent\n          setupTime\n          setupTimeSpent\n          workCenter { commonName department }\n        }\n      }\n    }\n  }\n}`},
+  recentUpdates:{name:'Recent Updates',color:'#00d4aa',query:`query RecentWorkOrders {\n  workOrders(\n    filter: { lastModifiedTime: { greaterThan: "20260101T000000Z" } }\n    pageSize: 20\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      workOrderNumber\n      status\n      year\n      lastModifiedTime\n      part { partNumber }\n    }\n  }\n}`},
+  contacts:{name:'Contacts',color:'#ff5c5c',query:`query GetContacts {\n  contacts(pageSize: 30, pageStart: 0) {\n    totalRecords\n    records {\n      name\n      companyName\n      industry\n    }\n  }\n}`}
+};
+let tabs=[],activeTabId=null,tabCounter=0;
+const charts={};
+
+// ── AUTH MODE ──────────────────────────────────────────────────────────────────
+function setMode(m){
+  authMode=m;
+  document.getElementById('fieldsPass').style.display=m==='password'?'block':'none';
+  document.getElementById('fieldsCred').style.display=m==='credentials'?'block':'none';
+  document.getElementById('btnModePass').classList.toggle('active',m==='password');
+  document.getElementById('btnModeCred').classList.toggle('active',m==='credentials');
+}
+
+// ── CONNECT ────────────────────────────────────────────────────────────────────
+async function doConnect(){
+  const btn=document.getElementById('btnConnect');
+  const errEl=document.getElementById('loginError');
+  errEl.style.display='none';
+  btn.disabled=true;btn.textContent='Connecting…';
+  const body={proshopRoot:document.getElementById('loginRoot').value.trim(),authMode};
+  if(authMode==='password'){
+    body.username=document.getElementById('loginUser').value.trim();
+    body.password=document.getElementById('loginPass').value;
+    body.scope=document.getElementById('loginScopePass').value.trim();
+  } else {
+    body.clientId=document.getElementById('loginClientId').value.trim();
+    body.clientSecret=document.getElementById('loginClientSecret').value.trim();
+    body.scope=document.getElementById('loginScopeCred').value.trim();
+  }
+  try{
+    const r=await fetch('/api/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await r.json();
+    if(!r.ok||data.error) throw new Error(data.error||'Connection failed');
+    SESSION_KEY=data.sessionKey;SESSION_ROOT=body.proshopRoot;
+    SESSION_USER=data.userName||body.clientId||body.username||'Connected';
+    showApp();
+  } catch(e){
+    errEl.textContent=e.message;errEl.style.display='block';
+    btn.disabled=false;btn.textContent='Connect to ProShop';
+  }
+}
+
+function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  ['appHeader','tabBar','appWorkspace'].forEach(id=>document.getElementById(id).style.display=id==='appWorkspace'?'flex':'flex');
+  document.getElementById('hdrRoot').textContent=SESSION_ROOT.replace(/https?:\/\//,'');
+  document.getElementById('hdrUser').textContent='👤 '+SESSION_USER;
+  addTab(PRESETS.capacityOps);
+}
+
+async function doDisconnect(){
+  if(SESSION_KEY){await fetch('/api/disconnect',{method:'POST',headers:{'x-session-key':SESSION_KEY}}).catch(()=>{});SESSION_KEY=null;}
+  tabs=[];tabCounter=0;
+  Object.values(charts).forEach(c=>{try{c.destroy();}catch(_){}});
+  document.getElementById('loginScreen').style.display='flex';
+  ['appHeader','tabBar','appWorkspace'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('btnConnect').disabled=false;
+  document.getElementById('btnConnect').textContent='Connect to ProShop';
+  document.getElementById('loginError').style.display='none';
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────────────
+function addTab(preset){
+  tabCounter++;
+  const id='t'+tabCounter,p=preset||PRESETS.capacityOps;
+  tabs.push({id,name:p.name||'Query '+tabCounter,color:p.color||'#4f8ef7',query:p.query,state:'idle',resultView:'dashboard',rawData:null,errorMsg:null});
+  activeTabId=id;renderTabs();renderPanel();
+}
+function switchTab(id){activeTabId=id;renderTabs();renderPanel();}
+function closeTab(id,e){
+  e.stopPropagation();destroyChartsFor(id);
+  const idx=tabs.findIndex(t=>t.id===id);
+  tabs=tabs.filter(t=>t.id!==id);
+  if(activeTabId===id) activeTabId=tabs[Math.min(idx,tabs.length-1)]?.id||null;
+  if(tabs.length===0) addTab(PRESETS.capacityOps);
+  else{renderTabs();renderPanel();}
+}
+function loadPreset(k){const p=PRESETS[k];if(p) addTab(p);}
+function destroyChartsFor(tid){
+  Object.keys(charts).filter(k=>k.startsWith(tid+'_')).forEach(k=>{try{charts[k].destroy();}catch(_){}delete charts[k];});
+}
+function renderTabs(){
+  document.getElementById('tabBar').innerHTML=tabs.map(t=>`
+    <div class="tab ${t.id===activeTabId?'active':''}" onclick="switchTab('${t.id}')">
+      <div class="tab-dot" style="background:${t.color}"></div>
+      <span>${t.name}</span>
+      ${t.state==='results'?'<span class="badge badge-ok" style="font-size:9px;padding:1px 5px;margin-left:2px">✓</span>':''}
+      ${t.state==='error'?'<span class="badge badge-err" style="font-size:9px;padding:1px 5px;margin-left:2px">!</span>':''}
+      <span class="tab-close" onclick="closeTab('${t.id}',event)">×</span>
+    </div>`).join('');
+}
+
+// ── PANEL ──────────────────────────────────────────────────────────────────────
+function renderPanel(){
+  const tab=tabs.find(t=>t.id===activeTabId);if(!tab)return;
+  destroyChartsFor(tab.id);
+  document.getElementById('mainPanel').innerHTML=`
+    <div class="editor-section">
+      <div class="editor-toolbar">
+        <span class="editor-lbl">GRAPHQL QUERY</span>
+        <div class="var-chip"><label>Status:</label>
+          <select id="fStatus" onchange="patchFilter()">
+            <option>Active</option><option>Expected</option><option>On Hold</option>
+          </select>
+        </div>
+        <div class="var-chip"><label>Year:</label>
+          <select id="fYear" onchange="patchFilter()">
+            <option>2026</option><option>2025</option><option>2024</option>
+          </select>
+        </div>
+        <div class="var-chip"><label>PageSize:</label>
+          <input id="fPageSize" type="number" value="50" min="1" max="500" style="width:52px" onchange="patchFilter()">
+        </div>
+        <div class="hdr-spacer" style="flex:1"></div>
+        <button class="btn-save" onclick="exportQuery()">⬇ Export .graphql</button>
+        <button class="btn-run" id="btnRun" onclick="runQuery()">▶ Run Query</button>
+      </div>
+      <textarea class="code-editor" id="queryEditor" spellcheck="false">${tab.query}</textarea>
+    </div>
+    <div class="results-area" id="resultsArea">${renderResultsArea(tab)}</div>`;
+  if(tab.state==='results'||tab.state==='error') setTimeout(()=>maybeInitCharts(tab),60);
+}
+
+function renderResultsArea(tab){
+  if(tab.state==='idle') return renderEmpty();
+  if(tab.state==='loading') return `<div class="loading-state"><div class="spinner"></div><span>Querying ProShop API…</span></div>`;
+  if(tab.state==='error') return `<div class="error-banner">${escHtml(tab.errorMsg)}</div>`;
+  return renderResultsShell(tab);
+}
+function renderEmpty(){
+  return `<div class="empty-state">
+    <div class="empty-icon">⬡</div>
+    <div class="empty-title">Ready to Query</div>
+    <div class="empty-sub">Load a preset or write a query above, then hit Run. Real ProShop data is visualized automatically.</div>
+    <div class="shortcut-pills">${Object.keys(PRESETS).map(k=>`<div class="spill" onclick="loadPreset('${k}')">${PRESETS[k].name}</div>`).join('')}</div>
+  </div>`;
+}
+function renderResultsShell(tab){
+  const d=tab.rawData,recCount=countRecords(d),hasErrors=d?.errors?.length>0;
+  return `
+    <div class="results-toolbar">
+      <div class="rtabs">
+        <button class="rtab ${tab.resultView==='dashboard'?'active':''}" onclick="switchView('dashboard')">⊞ Dashboard</button>
+        <button class="rtab ${tab.resultView==='table'?'active':''}" onclick="switchView('table')">≡ Table</button>
+        <button class="rtab ${tab.resultView==='json'?'active':''}" onclick="switchView('json')">{ } Raw JSON</button>
+      </div>
+      <div class="results-meta">
+        ${hasErrors?'<span class="badge badge-err">GraphQL Errors</span>':'<span class="badge badge-ok">200 OK</span>'}
+        <span>${recCount} records</span>
+        ${d?._meta?.ms?`<span>${d._meta.ms}ms</span>`:''}
+      </div>
+    </div>
+    <div class="results-content" id="resultsContent">${renderView(tab)}</div>`;
+}
+function switchView(v){
+  const tab=tabs.find(t=>t.id===activeTabId);if(!tab)return;
+  destroyChartsFor(tab.id);tab.resultView=v;
+  const ra=document.getElementById('resultsArea');
+  if(ra){ra.innerHTML=renderResultsShell(tab);if(v==='dashboard') setTimeout(()=>maybeInitCharts(tab),60);}
+}
+function renderView(tab){
+  if(tab.resultView==='json') return renderJSON(tab);
+  if(tab.resultView==='table') return renderTable(tab);
+  return renderDashboard(tab);
+}
+
+// ── RUN QUERY ──────────────────────────────────────────────────────────────────
+async function runQuery(){
+  const tab=tabs.find(t=>t.id===activeTabId);if(!tab)return;
+  const editor=document.getElementById('queryEditor');
+  if(editor) tab.query=editor.value;
+  const m=tab.query.match(/(?:query|mutation)\s+(\w+)/);if(m) tab.name=m[1];
+  tab.state='loading';tab.rawData=null;
+  renderTabs();
+  const ra=document.getElementById('resultsArea');
+  if(ra) ra.innerHTML=`<div class="loading-state"><div class="spinner"></div><span>Querying ProShop API…</span></div>`;
+  const t0=Date.now();
+  try{
+    const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json','x-session-key':SESSION_KEY},body:JSON.stringify({query:tab.query})});
+    if(r.status===401){const err=await r.json();throw new Error(err.error||'Session expired');}
+    const data=await r.json();
+    data._meta={ms:Date.now()-t0};
+    tab.rawData=data;tab.state=data.error?'error':'results';
+    if(data.error) tab.errorMsg=data.error;
+    renderTabs();destroyChartsFor(tab.id);
+    if(ra){
+      ra.innerHTML=data.error?`<div class="error-banner">${escHtml(data.error)}</div>`:renderResultsShell(tab);
+      if(tab.state==='results') setTimeout(()=>maybeInitCharts(tab),60);
+    }
+  } catch(e){
+    tab.state='error';tab.errorMsg=e.message;renderTabs();
+    if(ra) ra.innerHTML=`<div class="error-banner">${escHtml(e.message)}</div>`;
+    if(e.message.includes('Session')||e.message.includes('expired')) setTimeout(doDisconnect,2000);
+  }
+}
+
+// ── DATA HELPERS ───────────────────────────────────────────────────────────────
+function countRecords(d){
+  if(!d?.data) return 0;let n=0;
+  function walk(obj){if(Array.isArray(obj)){n+=obj.length;obj.forEach(walk);}else if(obj&&typeof obj==='object'){if('records'in obj)n+=obj.records?.length||0;Object.values(obj).forEach(walk);}}
+  walk(d.data);return n;
+}
+function getFirstArray(d){
+  if(!d?.data) return [];
+  function walk(obj){if(!obj||typeof obj!=='object')return null;if(Array.isArray(obj.records))return obj.records;for(const v of Object.values(obj)){const r=walk(v);if(r)return r;}return null;}
+  return walk(d.data)||[];
+}
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── DASHBOARD ──────────────────────────────────────────────────────────────────
+function renderDashboard(tab){
+  const records=getFirstArray(tab.rawData);
+  if(!records.length) return `<div class="empty-state"><div class="empty-icon">∅</div><div class="empty-title">No records returned</div><div class="empty-sub">The query ran successfully but returned no data. Adjust filters or check your scope includes the required modules.</div></div>`;
+  const hasOps=records.some(r=>r.ops?.records?.length>0);
+  const hasStatus=records.some(r=>r.status);
+  const hasWO=records.some(r=>r.workOrderNumber);
+  const hasMustLeave=records.some(r=>r.mustLeaveBy);
+  return `<div class="metric-row">${buildMetrics(records)}</div><div class="charts-grid">${buildChartsHtml(tab.id,records,hasOps,hasStatus,hasWO,hasMustLeave)}</div>`;
+}
+
+function buildMetrics(records){
+  const total=records.length;
+  const active=records.filter(r=>r.status==='Active').length;
+  const allOps=records.flatMap(r=>r.ops?.records||[]);
+  const compOps=allOps.filter(o=>o.isOpComplete).length;
+  const totalRun=allOps.reduce((s,o)=>s+(o.runTime||0),0);
+  return [
+    {lbl:'Total Records',val:total,sub:'returned by query',col:'var(--accent)'},
+    {lbl:'Active Orders',val:active||total,sub:'in production',col:'var(--success)'},
+    {lbl:'Operations',val:allOps.length||'—',sub:allOps.length?compOps+' complete':'no ops in query',col:'var(--a2)'},
+    {lbl:'Run Hrs Budgeted',val:totalRun?totalRun.toFixed(1):'—',sub:'total scheduled',col:'var(--warn)'},
+  ].map(c=>`<div class="metric-card"><div class="mc-lbl">${c.lbl}</div><div class="mc-val" style="color:${c.col}">${c.val}</div><div class="mc-delta">${c.sub}</div></div>`).join('');
+}
+
+function buildChartsHtml(tid,records,hasOps,hasStatus,hasWO,hasMustLeave){
+  let h='';
+  if(hasStatus) h+=`<div class="chart-card"><div class="cc-hdr"><div><div class="cc-ttl">Status Distribution</div><div class="cc-sub">Order status breakdown</div></div></div><div style="position:relative;height:200px"><canvas id="${tid}_status"></canvas></div><div class="chart-legend" id="${tid}_statusLgd"></div></div>`;
+  if(hasOps&&hasWO) h+=`<div class="chart-card"><div class="cc-hdr"><div><div class="cc-ttl">Op Completion %</div><div class="cc-sub">Per work order</div></div></div><div style="position:relative;height:200px"><canvas id="${tid}_opComp"></canvas></div></div>`;
+  if(hasOps) h+=`<div class="chart-card fw"><div class="cc-hdr"><div><div class="cc-ttl">Work Center Load (Hours)</div><div class="cc-sub">Run hours queued per machine</div></div></div><div style="position:relative;height:230px"><canvas id="${tid}_wcLoad"></canvas></div><div class="chart-legend"><div class="lg-item"><div class="lg-sw" style="background:#4f8ef7"></div>Budgeted</div><div class="lg-item"><div class="lg-sw" style="background:#f5a623"></div>Spent</div></div></div>`;
+  if(hasOps&&hasWO) h+=`<div class="chart-card fw"><div class="cc-hdr"><div><div class="cc-ttl">Setup &amp; Run: Budget vs Actual</div><div class="cc-sub">Hours per work order</div></div></div><div style="position:relative;height:210px"><canvas id="${tid}_timeVar"></canvas></div><div class="chart-legend"><div class="lg-item"><div class="lg-sw" style="background:#6c63ff"></div>Setup Budget</div><div class="lg-item"><div class="lg-sw" style="background:#4f8ef7"></div>Run Budget</div><div class="lg-item"><div class="lg-sw" style="background:#f5a623"></div>Setup Actual</div><div class="lg-item"><div class="lg-sw" style="background:#2ecc9a"></div>Run Actual</div></div></div>`;
+  if(hasOps) h+=`<div class="chart-card"><div class="cc-hdr"><div><div class="cc-ttl">Work Center Utilization</div><div class="cc-sub">Spent ÷ Budgeted</div></div></div><div id="${tid}_wcBars" style="padding:4px 0"></div></div>`;
+  if(hasOps) h+=`<div class="chart-card"><div class="cc-hdr"><div><div class="cc-ttl">Load by Department</div><div class="cc-sub">Run hours by dept</div></div></div><div style="position:relative;height:200px"><canvas id="${tid}_dept"></canvas></div></div>`;
+  if(hasMustLeave&&hasWO) h+=`<div class="chart-card fw"><div class="cc-hdr"><div><div class="cc-ttl">Must-Leave-By Timeline</div><div class="cc-sub">Op completion per WO</div></div></div><div id="${tid}_gantt" style="padding:6px 0"></div></div>`;
+  if(!hasOps&&!hasStatus) h+=`<div class="chart-card fw"><div class="cc-hdr"><div><div class="cc-ttl">Result Overview</div><div class="cc-sub">Numeric fields from response</div></div></div><div style="position:relative;height:240px"><canvas id="${tid}_generic"></canvas></div></div>`;
+  return h;
+}
+
+// ── CHART INIT ─────────────────────────────────────────────────────────────────
+function maybeInitCharts(tab){
+  const records=getFirstArray(tab.rawData);if(!records.length)return;
+  const tid=tab.id;
+  const hasOps=records.some(r=>r.ops?.records?.length>0);
+  const hasStatus=records.some(r=>r.status);
+
+  // Status donut
+  if(hasStatus&&document.getElementById(`${tid}_status`)){
+    const counts={};records.forEach(r=>{counts[r.status]=(counts[r.status]||0)+1;});
+    const labels=Object.keys(counts);
+    const colMap={Active:'#2ecc9a','On Hold':'#ff5c5c',Expected:'#4f8ef7',Closed:'#5d6480'};
+    const colors=labels.map(l=>colMap[l]||'#6c63ff');
+    charts[`${tid}_status`]=new Chart(document.getElementById(`${tid}_status`),{type:'doughnut',data:{labels,datasets:[{data:labels.map(l=>counts[l]),backgroundColor:colors,borderColor:'#121520',borderWidth:3,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{display:false}}}});
+    const lgd=document.getElementById(`${tid}_statusLgd`);
+    if(lgd) lgd.innerHTML=labels.map((l,i)=>`<div class="lg-item"><div class="lg-sw" style="background:${colors[i]}"></div>${l} ${counts[l]}</div>`).join('');
+  }
+
+  // Op completion
+  if(hasOps&&document.getElementById(`${tid}_opComp`)){
+    const wos=records.filter(r=>r.ops?.records?.length>0).slice(0,15);
+    const pcts=wos.map(r=>{const ops=r.ops.records;return Math.round(ops.filter(o=>o.isOpComplete).length/ops.length*100);});
+    charts[`${tid}_opComp`]=new Chart(document.getElementById(`${tid}_opComp`),{type:'bar',data:{labels:wos.map(r=>r.workOrderNumber||'?'),datasets:[{data:pcts,backgroundColor:pcts.map(p=>p>=100?'#2ecc9acc':p>50?'#4f8ef7cc':'#f5a623cc'),borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw}% complete`}}},scales:{x:{min:0,max:100,ticks:{color:'#4f5878',callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#8e97b4',font:{family:"'JetBrains Mono',monospace",size:10}},grid:{color:'rgba(255,255,255,0.03)'}}}}});
+  }
+
+  // WC load
+  if(hasOps&&document.getElementById(`${tid}_wcLoad`)){
+    const wcMap={},wcSpent={};
+    records.forEach(r=>(r.ops?.records||[]).forEach(op=>{const wc=op.workCenter?.commonName||'Unknown';wcMap[wc]=(wcMap[wc]||0)+(op.runTime||0);wcSpent[wc]=(wcSpent[wc]||0)+(op.runTimeSpent||0);}));
+    const sorted=Object.keys(wcMap).sort((a,b)=>wcMap[b]-wcMap[a]).slice(0,12);
+    charts[`${tid}_wcLoad`]=new Chart(document.getElementById(`${tid}_wcLoad`),{type:'bar',data:{labels:sorted.map(w=>w.replace(/Mazak -|Okuma -|Fastems /g,'').trim().substring(0,18)),datasets:[{label:'Budgeted',data:sorted.map(w=>+wcMap[w].toFixed(1)),backgroundColor:'#4f8ef7cc',borderRadius:4,borderSkipped:false},{label:'Spent',data:sorted.map(w=>+wcSpent[w].toFixed(1)),backgroundColor:'#f5a623cc',borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4f5878',font:{size:10},maxRotation:35},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#4f5878',callback:v=>v+'h'},grid:{color:'rgba(255,255,255,0.05)'},beginAtZero:true}}}});
+    const barsEl=document.getElementById(`${tid}_wcBars`);
+    if(barsEl) barsEl.innerHTML=sorted.map(w=>{const pct=wcMap[w]>0?Math.min(100,Math.round(wcSpent[w]/wcMap[w]*100)):0;const col=pct>90?'#ff5c5c':pct>70?'#f5a623':'#2ecc9a';return `<div class="pb-row"><div class="pb-lbl" title="${w}">${w.replace(/Mazak -|Okuma -|Fastems /g,'').trim().substring(0,22)}</div><div class="pb-track"><div class="pb-fill" style="width:${pct}%;background:${col}"></div></div><div class="pb-val">${pct}%</div></div>`;}).join('');
+  }
+
+  // Time variance
+  if(hasOps&&document.getElementById(`${tid}_timeVar`)){
+    const wos=records.filter(r=>r.ops?.records?.length).slice(0,12);
+    charts[`${tid}_timeVar`]=new Chart(document.getElementById(`${tid}_timeVar`),{type:'bar',data:{labels:wos.map(r=>r.workOrderNumber||'?'),datasets:[{label:'Setup Budget',data:wos.map(r=>+r.ops.records.reduce((s,o)=>s+(o.setupTime||0),0).toFixed(1)),backgroundColor:'#6c63ffcc',borderRadius:3,borderSkipped:false},{label:'Run Budget',data:wos.map(r=>+r.ops.records.reduce((s,o)=>s+(o.runTime||0),0).toFixed(1)),backgroundColor:'#4f8ef7cc',borderRadius:3,borderSkipped:false},{label:'Setup Actual',data:wos.map(r=>+r.ops.records.reduce((s,o)=>s+(o.setupTimeSpent||0),0).toFixed(1)),backgroundColor:'#f5a623cc',borderRadius:3,borderSkipped:false},{label:'Run Actual',data:wos.map(r=>+r.ops.records.reduce((s,o)=>s+(o.runTimeSpent||0),0).toFixed(1)),backgroundColor:'#2ecc9acc',borderRadius:3,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4f5878',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#4f5878',callback:v=>v+'h'},grid:{color:'rgba(255,255,255,0.05)'},beginAtZero:true}}}});
+  }
+
+  // Dept polar
+  if(hasOps&&document.getElementById(`${tid}_dept`)){
+    const deptMap={};records.forEach(r=>(r.ops?.records||[]).forEach(op=>{const d=op.workCenter?.department||'Unknown';deptMap[d]=(deptMap[d]||0)+(op.runTime||0);}));
+    const depts=Object.keys(deptMap);const dc=['#2ecc9a','#4f8ef7','#6c63ff','#f5a623','#ff5c5c','#00d4aa','#e8865a'];
+    charts[`${tid}_dept`]=new Chart(document.getElementById(`${tid}_dept`),{type:'polarArea',data:{labels:depts,datasets:[{data:depts.map(d=>+deptMap[d].toFixed(1)),backgroundColor:depts.map((_,i)=>dc[i%dc.length]+'cc'),borderColor:depts.map((_,i)=>dc[i%dc.length]),borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8e97b4',font:{size:11},boxWidth:10}}},scales:{r:{ticks:{color:'#4f5878',backdropColor:'transparent',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}}}}});
+  }
+
+  // Gantt
+  const ganttEl=document.getElementById(`${tid}_gantt`);
+  if(ganttEl){
+    const wos=records.filter(r=>r.mustLeaveBy&&r.workOrderNumber);
+    const colMap={Active:'#4f8ef7','On Hold':'#ff5c5c',Expected:'#2ecc9a'};
+    if(wos.length) ganttEl.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;padding:0 0 6px;border-bottom:1px solid var(--border2);margin-bottom:4px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);width:90px;flex-shrink:0">Work Order</div>
+        <div style="flex:1;display:flex;justify-content:space-between;font-size:10px;color:var(--text3);padding:0 4px"><span>0%</span><span>50%</span><span>100%</span></div>
+        <div style="font-size:10px;color:var(--text3);width:60px;text-align:right">Due</div>
+      </div>
+      ${wos.slice(0,15).map(w=>{const allOps=w.ops?.records||[];const pct=allOps.length?Math.round(allOps.filter(o=>o.isOpComplete).length/allOps.length*100):50;const col=colMap[w.status]||'#6c63ff';const due=(w.mustLeaveBy||'').substring(0,10).replace(/^\d{4}-/,'');return `<div class="gantt-row"><div class="gantt-wo">${w.workOrderNumber}</div><div class="gantt-bar-wrap"><div class="gantt-bar" style="width:${pct}%;background:${col}55;border-left:3px solid ${col}">${pct}%</div></div><div class="gantt-date">${due}</div></div>`;}).join('')}`;
+  }
+
+  // Generic catch-all
+  const genEl=document.getElementById(`${tid}_generic`);
+  if(genEl){
+    const sample=records[0]||{};
+    const numKeys=Object.keys(sample).filter(k=>typeof sample[k]==='number').slice(0,6);
+    if(numKeys.length){
+      const dc=['#4f8ef7','#2ecc9a','#6c63ff','#f5a623','#ff5c5c','#00d4aa'];
+      charts[`${tid}_generic`]=new Chart(genEl,{type:'bar',data:{labels:records.slice(0,15).map((r,i)=>r.name||r.workOrderNumber||r.partNumber||('#'+(i+1))),datasets:numKeys.map((k,i)=>({label:k,data:records.slice(0,15).map(r=>r[k]||0),backgroundColor:dc[i]+'cc',borderRadius:4,borderSkipped:false}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8e97b4',boxWidth:10}}},scales:{x:{ticks:{color:'#4f5878',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#4f5878'},grid:{color:'rgba(255,255,255,0.05)'},beginAtZero:true}}}});
+    } else {
+      genEl.parentElement.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">No numeric fields to chart. Switch to Table or JSON view.</div>';
+    }
+  }
+}
+
+// ── TABLE VIEW ─────────────────────────────────────────────────────────────────
+function renderTable(tab){
+  const records=getFirstArray(tab.rawData);
+  if(!records.length) return '<div class="empty-state"><div class="empty-title">No records</div></div>';
+  function flatten(r){const out={};for(const[k,v] of Object.entries(r)){if(v===null||v===undefined){out[k]='—';}else if(typeof v==='object'&&!Array.isArray(v)){for(const[k2,v2] of Object.entries(v)){if(typeof v2!=='object') out[`${k}.${k2}`]=v2??'—';}}else if(Array.isArray(v)){out[k]=`[${v.length}]`;}else{out[k]=v;}}return out;}
+  const flat=records.map(flatten);const cols=Object.keys(flat[0]||{});
+  const stMap={Active:'st-active','On Hold':'st-hold',Expected:'st-exp'};
+  return `<div class="tbl-wrap"><table class="data-tbl"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${flat.map(row=>`<tr>${cols.map(c=>{const v=String(row[c]??'—');const sc=stMap[v];return `<td>${sc?`<span class="st ${sc}">${v}</span>`:escHtml(v)}</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── JSON VIEW ──────────────────────────────────────────────────────────────────
+function renderJSON(tab){
+  const d={...tab.rawData};delete d._meta;
+  const str=JSON.stringify(d,null,2)
+    .replace(/("[\w.@\-/]+")\s*:/g,'<span class="jk">$1</span>:')
+    .replace(/:\s*("(?:[^"\\]|\\.)*")/g,': <span class="js">$1</span>')
+    .replace(/:\s*(-?\d+\.?\d*)/g,': <span class="jn">$1</span>')
+    .replace(/:\s*(true|false)/g,': <span class="jb">$1</span>')
+    .replace(/:\s*(null)/g,': <span class="jnull">$1</span>');
+  return `<div class="json-view">${str}</div>`;
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────────
+function patchFilter(){
+  const editor=document.getElementById('queryEditor');if(!editor)return;
+  const s=document.getElementById('fStatus')?.value,y=document.getElementById('fYear')?.value,ps=document.getElementById('fPageSize')?.value;
+  let q=editor.value;
+  if(s) q=q.replace(/status:\s*\["[^"]*"\]/,`status: ["${s}"]`);
+  if(y) q=q.replace(/year:\s*\["[^"]*"\]/,`year: ["${y}"]`);
+  if(ps) q=q.replace(/pageSize:\s*\d+/,`pageSize: ${ps}`);
+  editor.value=q;
+}
+function ins(field){
+  const editor=document.getElementById('queryEditor');if(!editor)return;
+  const pos=editor.selectionStart;
+  editor.value=editor.value.substring(0,pos)+'\n      '+field+editor.value.substring(pos);
+  editor.focus();
+}
+function exportQuery(){
+  const tab=tabs.find(t=>t.id===activeTabId);if(!tab)return;
+  const editor=document.getElementById('queryEditor');
+  const q=editor?editor.value:tab.query;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([q],{type:'text/plain'}));
+  a.download=(tab.name||'query').replace(/\s+/g,'_')+'.graphql';
+  a.click();
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('loginScreen').style.display!=='none') doConnect();});
+</script>
+</body>
+</html>
