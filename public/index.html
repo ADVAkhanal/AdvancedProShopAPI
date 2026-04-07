@@ -65,6 +65,18 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);display:flex
 .tab-close{width:15px;height:15px;border-radius:3px;display:flex;align-items:center;justify-content:center;opacity:0;font-size:12px;transition:opacity .14s;color:var(--text3);cursor:pointer;margin-left:2px;}
 .tab:hover .tab-close{opacity:1;}
 .tab-close:hover{background:var(--bg4);color:var(--danger);}
+.tab-name-input{background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--text);font-family:var(--sans);font-size:12.5px;outline:none;width:80px;padding:0 2px;}
+/* REFRESH BAR */
+.refresh-bar{display:flex;align-items:center;gap:6px;padding:5px 13px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.refresh-lbl{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text3);}
+.rf-btn{padding:4px 10px;background:transparent;border:1px solid var(--border2);border-radius:5px;color:var(--text3);font-family:var(--sans);font-size:11px;cursor:pointer;transition:all .13s;}
+.rf-btn:hover{border-color:var(--accent);color:var(--accent);}
+.rf-btn.active{background:rgba(79,142,247,.15);border-color:var(--accent);color:var(--accent);}
+.rf-now{padding:4px 12px;background:var(--a3);border:none;border-radius:5px;color:#000;font-family:var(--sans);font-size:11px;font-weight:700;cursor:pointer;transition:all .13s;display:flex;align-items:center;gap:5px;}
+.rf-now:hover{background:#00f0c0;transform:translateY(-1px);}
+.rf-now:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.rf-countdown{font-size:10px;font-family:var(--mono);color:var(--text3);margin-left:4px;}
+.rf-last{font-size:10px;color:var(--text3);margin-left:auto;}
 /* WORKSPACE */
 .workspace{flex:1;display:flex;overflow:hidden;}
 /* SIDEBAR */
@@ -239,6 +251,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);display:flex
 
 <div class="tab-bar" id="tabBar" style="display:none"></div>
 
+<div class="refresh-bar" id="refreshBar" style="display:none">
+  <span class="refresh-lbl">Auto Refresh</span>
+  <button class="rf-btn" id="rf_off" onclick="setRefresh(0)">Off</button>
+  <button class="rf-btn" id="rf_1h" onclick="setRefresh(3600)">1h</button>
+  <button class="rf-btn" id="rf_4h" onclick="setRefresh(14400)">4h</button>
+  <button class="rf-btn" id="rf_8h" onclick="setRefresh(28800)">8h</button>
+  <button class="rf-btn" id="rf_24h" onclick="setRefresh(86400)">24h</button>
+  <span class="rf-countdown" id="rfCountdown"></span>
+  <button class="rf-now" id="rfNow" onclick="liveRefresh()">&#8635; Refresh Now</button>
+  <span class="rf-last" id="rfLast"></span>
+</div>
 <div class="workspace" id="appWorkspace" style="display:none">
   <div class="sidebar">
     <div class="sidebar-sec">
@@ -352,15 +375,18 @@ function showApp(){
   document.getElementById('appWorkspace').style.display='flex';
   document.getElementById('hdrRoot').textContent=SESSION_ROOT.replace(/https?:\/\//,'');
   document.getElementById('hdrUser').textContent='U '+SESSION_USER;
+  document.getElementById('refreshBar').style.display='flex';
+  setRefresh(0);
   addTab(PRESETS.capacityOps);
 }
 async function doDisconnect(){
   if(SESSION_KEY){await fetch('/api/disconnect',{method:'POST',headers:{'x-session-key':SESSION_KEY}}).catch(function(){});SESSION_KEY=null;}
+  clearInterval(refreshTimer);clearInterval(countdownTimer);refreshTimer=null;countdownTimer=null;nextRefreshAt=null;
   tabs=[];tabCounter=0;
   Object.values(charts).forEach(function(c){try{c.destroy();}catch(e){}});
   charts={};
   document.getElementById('loginScreen').style.display='flex';
-  ['appHeader','tabBar','appWorkspace'].forEach(function(id){document.getElementById(id).style.display='none';});
+  ['appHeader','tabBar','appWorkspace','refreshBar'].forEach(function(id){document.getElementById(id).style.display='none';});
   document.getElementById('btnConnect').disabled=false;document.getElementById('btnConnect').textContent='Connect to ProShop';
   document.getElementById('loginError').style.display='none';
 }
@@ -382,18 +408,89 @@ function closeTab(id,e){
   else{renderTabs();renderPanel();}
 }
 function loadPreset(k){var p=PRESETS[k];if(p) addTab(p);}
+
+// ═══ TAB RENAME ══════════════════════════════════════════════════════════════
+function startRename(id,e){
+  e.stopPropagation();
+  tabs.forEach(function(t){t.renaming=false;});
+  var tab=tabs.find(function(t){return t.id===id;});
+  if(tab){tab.renaming=true;activeTabId=id;renderTabs();}
+}
+function finishRename(id){
+  var tab=tabs.find(function(t){return t.id===id;});if(!tab)return;
+  var el=document.getElementById('ren_'+id);
+  if(el){var v=el.value.trim();if(v) tab.name=v;}
+  tab.renaming=false;renderTabs();
+}
+function renameKey(id,e){
+  if(e.key==='Enter'){e.preventDefault();finishRename(id);}
+  if(e.key==='Escape'){var tab=tabs.find(function(t){return t.id===id;});if(tab) tab.renaming=false;renderTabs();}
+}
+
+// ═══ LIVE REFRESH / AUTO-REFRESH TIMER ═══════════════════════════════════════
+var refreshInterval=0,refreshTimer=null,countdownTimer=null,nextRefreshAt=null;
+
+function setRefresh(secs){
+  refreshInterval=secs;
+  clearInterval(refreshTimer);clearInterval(countdownTimer);refreshTimer=null;countdownTimer=null;nextRefreshAt=null;
+  document.getElementById('rfCountdown').textContent='';
+  ['rf_off','rf_1h','rf_4h','rf_8h','rf_24h'].forEach(function(id){
+    var el=document.getElementById(id);if(el) el.classList.remove('active');
+  });
+  var activeId=secs===0?'rf_off':secs===3600?'rf_1h':secs===14400?'rf_4h':secs===28800?'rf_8h':secs===86400?'rf_24h':null;
+  if(activeId){var el=document.getElementById(activeId);if(el) el.classList.add('active');}
+  if(secs>0){
+    nextRefreshAt=Date.now()+secs*1000;
+    refreshTimer=setInterval(function(){liveRefresh();nextRefreshAt=Date.now()+secs*1000;},secs*1000);
+    countdownTimer=setInterval(updateCountdown,1000);
+    updateCountdown();
+  }
+}
+
+function updateCountdown(){
+  if(!nextRefreshAt){document.getElementById('rfCountdown').textContent='';return;}
+  var rem=Math.max(0,Math.round((nextRefreshAt-Date.now())/1000));
+  var h=Math.floor(rem/3600),m=Math.floor((rem%3600)/60),s=rem%60;
+  var txt=h>0?(h+'h '+(m<10?'0':'')+m+'m'):m>0?(m+'m '+(s<10?'0':'')+s+'s'):(s+'s');
+  document.getElementById('rfCountdown').textContent='Next: '+txt;
+}
+
+async function liveRefresh(){
+  var tab=tabs.find(function(t){return t.id===activeTabId;});if(!tab||!tab.query)return;
+  var btn=document.getElementById('rfNow');if(btn){btn.disabled=true;btn.textContent='Refreshing...';}
+  var ed=document.getElementById('queryEditor');if(ed) tab.query=ed.value;
+  var ra=document.getElementById('resultsArea');
+  var t0=Date.now();
+  try{
+    var r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json','x-session-key':SESSION_KEY},body:JSON.stringify({query:tab.query})});
+    if(r.status===401){var e2=await r.json();throw new Error(e2.error||'Session expired');}
+    var data=await r.json();data._meta={ms:Date.now()-t0};
+    tab.rawData=data;tab.state='results';
+    if(data.error){tab.state='error';tab.errorMsg=data.error;}
+    var now=new Date();
+    var lastEl=document.getElementById('rfLast');if(lastEl) lastEl.textContent='Last: '+now.toLocaleTimeString();
+    renderTabs();destroyChartsFor(tab.id);
+    if(ra){ra.innerHTML=tab.state==='error'?'<div class="error-banner">'+xh(data.error)+'</div>':renderResultsShell(tab);if(tab.state==='results') setTimeout(function(){initAllCharts(tab);},80);}
+  }catch(e){tab.state='error';tab.errorMsg=e.message;renderTabs();if(ra) ra.innerHTML='<div class="error-banner">'+xh(e.message)+'</div>';}
+  finally{if(btn){btn.disabled=false;btn.innerHTML='&#8635; Refresh Now';}}
+}
 function destroyChartsFor(tid){
   Object.keys(charts).filter(function(k){return k.indexOf(tid+'_')===0;}).forEach(function(k){try{charts[k].destroy();}catch(e){}delete charts[k];});
 }
 function renderTabs(){
   document.getElementById('tabBar').innerHTML=tabs.map(function(t){
-    return '<div class="tab '+(t.id===activeTabId?'active':'')+'" onclick="switchTab(\''+t.id+'\')">'
+    var isRen=t.renaming;
+    return '<div class="tab '+(t.id===activeTabId?'active':'')+'" onclick="switchTab(\''+t.id+'\')" ondblclick="startRename(\''+t.id+'\',event)">'
       +'<div class="tab-dot" style="background:'+t.color+'"></div>'
-      +'<span>'+xh(t.name)+'</span>'
+      +(isRen
+        ?'<input class="tab-name-input" id="ren_'+t.id+'" value="'+xh(t.name)+'" onclick="event.stopPropagation()" onblur="finishRename(\''+t.id+'\')" onkeydown="renameKey(\''+t.id+'\',event)" autofocus>'
+        :'<span>'+xh(t.name)+'</span>')
       +(t.state==='results'?'<span class="badge badge-ok" style="font-size:8.5px;padding:1px 4px;margin-left:2px">OK</span>':'')
       +(t.state==='error'?'<span class="badge badge-err" style="font-size:8.5px;padding:1px 4px;margin-left:2px">ERR</span>':'')
       +'<span class="tab-close" onclick="closeTab(\''+t.id+'\',event)">x</span></div>';
   }).join('');
+  // focus rename input if needed
+  tabs.forEach(function(t){if(t.renaming){var el=document.getElementById('ren_'+t.id);if(el){el.focus();el.select();}}});
 }
 
 // ═══ PANEL ═══════════════════════════════════════════════════════════════════
@@ -606,27 +703,29 @@ function buildGauges(records,f){
 }
 
 // ═══ MONTHLY SECTION ══════════════════════════════════════════════════════════
+// NOTE: monthly breakdown uses dueDate or punchDate ONLY — never mustLeaveBy
 function buildMonthlySection(tid,records,f){
-  var df=records.some(function(r){return r.mustLeaveBy;})?'mustLeaveBy':records.some(function(r){return r.dueDate;})?'dueDate':null;
+  // Use dueDate for WO-based monthly — mustLeaveBy is a shipping target, not a creation/due date
+  var df=records.some(function(r){return r.dueDate;})?'dueDate':null;
   if(!df&&!f.hasTClock) return '';
   var html='<div class="charts-grid">';
   if(df){
     var mc=new Array(12).fill(0);records.forEach(function(r){var m=getMo(r[df]);if(m!==null)mc[m]++;});
-    if(mc.some(function(v){return v>0;})) html+=chartCard(tid+'_moC','Monthly Order Count','By '+df,'<div style="position:relative;height:160px"><canvas id="'+tid+'_moC"></canvas></div>');
+    if(mc.some(function(v){return v>0;})) html+=chartCard(tid+'_moC','Monthly Order Count','By due date','<div style="position:relative;height:160px"><canvas id="'+tid+'_moC"></canvas></div>');
     if(f.hasDollar){
       var me=new Array(12).fill(0),ma=new Array(12).fill(0);
       records.forEach(function(r){var m=getMo(r[df]);if(m===null)return;me[m]+=(parseFloat(r.estWODollarAmount)||0);ma[m]+=(parseFloat(r.actualDollarAmount)||0);});
-      if(me.some(function(v){return v>0;})) html+=chartCard(tid+'_moDol','Monthly Revenue','Est vs actual','<div style="position:relative;height:160px"><canvas id="'+tid+'_moDol"></canvas></div>');
+      if(me.some(function(v){return v>0;})) html+=chartCard(tid+'_moDol','Monthly Revenue','Est vs actual by due date','<div style="position:relative;height:160px"><canvas id="'+tid+'_moDol"></canvas></div>');
     }
     if(f.hasQty){
       var mq=new Array(12).fill(0),ms=new Array(12).fill(0);
       records.forEach(function(r){var m=getMo(r[df]);if(m===null)return;mq[m]+=(parseFloat(r.quantityOrdered)||0);ms[m]+=(parseFloat(r.qtyShipped)||0);});
-      if(mq.some(function(v){return v>0;})) html+=chartCard(tid+'_moQ','Monthly Quantity','Ordered vs shipped','<div style="position:relative;height:160px"><canvas id="'+tid+'_moQ"></canvas></div>');
+      if(mq.some(function(v){return v>0;})) html+=chartCard(tid+'_moQ','Monthly Quantity','Ordered vs shipped by due date','<div style="position:relative;height:160px"><canvas id="'+tid+'_moQ"></canvas></div>');
     }
     if(f.hasOps){
       var mo=new Array(12).fill(0),mc2=new Array(12).fill(0);
       records.forEach(function(r){var m=getMo(r[df]);if(m===null)return;(r.ops&&r.ops.records||[]).forEach(function(op){mo[m]++;if(op.isOpComplete)mc2[m]++;});});
-      if(mo.some(function(v){return v>0;})) html+=chartCard(tid+'_moOps','Monthly Ops Completion','Total vs complete','<div style="position:relative;height:160px"><canvas id="'+tid+'_moOps"></canvas></div>');
+      if(mo.some(function(v){return v>0;})) html+=chartCard(tid+'_moOps','Monthly Ops Completion','Total vs complete by due date','<div style="position:relative;height:160px"><canvas id="'+tid+'_moOps"></canvas></div>');
     }
   }
   if(f.hasTClock){
@@ -634,11 +733,11 @@ function buildMonthlySection(tid,records,f){
     if(mp.some(function(v){return v>0;})) html+=chartCard(tid+'_moAttn','Monthly Attendance','Clock-in punches per month','<div style="position:relative;height:160px"><canvas id="'+tid+'_moAttn"></canvas></div>');
   }
   html+='</div>';
-  // Monthly value card grid
+  // Monthly value card grid — only if dueDate-based data available
   if(f.hasDollar&&df){
     var me2=new Array(12).fill(0),mc3=new Array(12).fill(0);
     records.forEach(function(r){var m=getMo(r[df]);if(m===null)return;me2[m]+=(parseFloat(r.estWODollarAmount)||0);mc3[m]++;});
-    html+='<div class="chart-card fw"><div class="cc-hdr"><div><div class="cc-ttl">Monthly Value Summary</div><div class="cc-sub">Est. dollar value + order count per month</div></div></div>'
+    html+='<div class="chart-card fw"><div class="cc-hdr"><div><div class="cc-ttl">Monthly Value Summary</div><div class="cc-sub">Est. dollar value + order count per month (by due date)</div></div></div>'
       +'<div class="monthly-grid" style="margin-top:6px">'
       +MONTHS.map(function(mo,i){return '<div class="mo-cell"><div class="mo-name">'+mo+'</div><div class="mo-val">'+(me2[i]>0?'$'+new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(me2[i]):'--')+'</div><div class="mo-cnt">'+mc3[i]+' orders</div></div>';}).join('')
       +'</div></div>';
@@ -763,8 +862,8 @@ function initAllCharts(tab){
     mkC(tid+'_route','doughnut',{labels:re.map(function(x){return x[0];}),datasets:[{data:re.map(function(x){return x[1];}),backgroundColor:re.map(function(_,i){return PAL[i%PAL.length]+'dd';}),borderColor:'#090c12',borderWidth:2}]},{cutout:'60%'});
   }
 
-  // Monthly
-  var df=records.some(function(r){return r.mustLeaveBy;})?'mustLeaveBy':records.some(function(r){return r.dueDate;})?'dueDate':null;
+  // Monthly — use dueDate only (NOT mustLeaveBy which is a ship target, not a date-bucket field)
+  var df=records.some(function(r){return r.dueDate;})?'dueDate':null;
   if(df){
     var mc=new Array(12).fill(0);records.forEach(function(r){var m=getMo(r[df]);if(m!==null)mc[m]++;});
     if(mc.some(function(v){return v>0;})) mkC(tid+'_moC','bar',{labels:MONTHS,datasets:[{data:mc,backgroundColor:PAL.slice(0,12).map(function(c){return c+'bb';}),borderRadius:3,borderSkipped:false}]},{scales:ax({ticks:{font:{size:9},color:'#424d6e'}},{ticks:{font:{size:9},color:'#424d6e'}})});
