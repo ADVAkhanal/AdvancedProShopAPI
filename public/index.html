@@ -110,9 +110,18 @@ body{font-family:var(--body);color:var(--text);display:flex;flex-direction:colum
 
 /* ── WORKSPACE ── */
 .workspace{flex:1;display:flex;overflow:hidden;}
+/* Sidebar resize */
+.sidebar{width:200px;flex-shrink:0;background:var(--ink2);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;position:relative;min-width:120px;max-width:400px;}
+.sidebar-resize{position:absolute;top:0;right:-3px;width:6px;height:100%;cursor:ew-resize;z-index:10;background:transparent;}
+.sidebar-resize:hover,.sidebar-resize.dragging{background:rgba(245,146,10,.3);}
+/* Main panel split: editor top, results bottom */
+.panel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.editor-wrap{display:flex;flex-direction:column;background:var(--ink2);border-bottom:none;flex-shrink:0;position:relative;}
+.editor-results-splitter{height:5px;background:var(--ink2);border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);cursor:ns-resize;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.editor-results-splitter:hover,.editor-results-splitter.dragging{background:rgba(245,146,10,.2);}
+.editor-results-splitter::after{content:'';width:32px;height:2px;background:var(--line3);border-radius:1px;}
 
 /* ── SIDEBAR ── */
-.sidebar{width:200px;flex-shrink:0;background:var(--ink2);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;}
 .sidebar-sec{padding:9px 11px 8px;border-bottom:1px solid var(--line);}
 .sidebar-lbl{font-family:var(--head);font-size:8.5px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
 .schema-explorer{flex:1;overflow-y:auto;padding:6px 9px;}
@@ -122,12 +131,11 @@ body{font-family:var(--body);color:var(--text);display:flex;flex-direction:colum
 .sn-type{font-size:7.5px;padding:1px 3px;border-radius:2px;background:var(--ink5);font-weight:700;flex-shrink:0;}
 
 /* ── MAIN PANEL ── */
-.panel{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 
 /* ═══════════════════════════════════════════════
    ALTAIR-STYLE EDITOR
 ═══════════════════════════════════════════════ */
-.editor-wrap{display:flex;flex-direction:column;background:var(--ink2);border-bottom:1px solid var(--line2);flex-shrink:0;}
+.editor-wrap{display:flex;flex-direction:column;background:var(--ink2);border-bottom:1px solid var(--amber);flex-shrink:0;}
 
 /* Editor top toolbar */
 .editor-topbar{display:flex;align-items:center;gap:6px;padding:5px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
@@ -317,8 +325,8 @@ body{font-family:var(--body);color:var(--text);display:flex;flex-direction:colum
       <label class="form-label">Password</label>
       <input id="loginPass" class="form-input" type="password" placeholder="••••••••••••" autocomplete="current-password">
       <label class="form-label">Scope</label>
-      <input id="loginScopePass" class="form-input mono" value="workorders:rw parts:r users:r contacts:r invoices:r timeclock:r">
-      <p class="scope-hint">Space-delimited. e.g.: workorders:rw parts:r users:r contacts:r</p>
+      <input id="loginScopePass" class="form-input mono" value="approvals:rwdp auditreports:rwdp bills:rwdp classifications:rwdp companypositions:rwdp contacts:rwdp correctiveactionrequests:rwdp customerpo:rwdp customersurveys:rwdp documents:rwdp editlogs:rwdp equipment:rwdp estimatearchives:rwdp estimates:rwdp fixtures:rwdp formats:rwdp invoices:rwdp messages:rwdp nonconformancereports:rwdp ots:rwdp packingslips:rwdp partarchives:rwdp parts:rwdp preventiveactionrequests:rwdp purchaseorders:rwdp qualitymanuals:rwdp qualityprocedures:rwdp quotes:rwdp returnmaterialauthorization:rwdp rtas:rwdp standards:rwdp taskstable:rwdp toolpots:rwdp tools:rwdp trainings:rwdp users:rwdp workorders:rwdp securityadmin systemconfig sensitivedata itarokay:o">
+      <p class="scope-hint">Full scope. Edit only if your instance requires restricted access.</p>
     </div>
     <div id="fieldsCred" style="display:none">
       <label class="form-label">Client ID</label>
@@ -326,7 +334,7 @@ body{font-family:var(--body);color:var(--text);display:flex;flex-direction:colum
       <label class="form-label">Client Secret</label>
       <input id="loginClientSecret" class="form-input mono" type="password" placeholder="64-char hex secret">
       <label class="form-label">Scope</label>
-      <input id="loginScopeCred" class="form-input mono" value="workorders:rw parts:r users:r contacts:r invoices:r timeclock:r">
+      <input id="loginScopeCred" class="form-input mono" value="approvals:rwdp auditreports:rwdp bills:rwdp classifications:rwdp companypositions:rwdp contacts:rwdp correctiveactionrequests:rwdp customerpo:rwdp customersurveys:rwdp documents:rwdp editlogs:rwdp equipment:rwdp estimatearchives:rwdp estimates:rwdp fixtures:rwdp formats:rwdp invoices:rwdp messages:rwdp nonconformancereports:rwdp ots:rwdp packingslips:rwdp partarchives:rwdp parts:rwdp preventiveactionrequests:rwdp purchaseorders:rwdp qualitymanuals:rwdp qualityprocedures:rwdp quotes:rwdp returnmaterialauthorization:rwdp rtas:rwdp standards:rwdp taskstable:rwdp toolpots:rwdp tools:rwdp trainings:rwdp users:rwdp workorders:rwdp securityadmin systemconfig sensitivedata itarokay:o">
       <p class="scope-hint">Leave blank for server-default scope.</p>
     </div>
     <button class="btn-connect" id="btnConnect" onclick="doConnect()">&#9654;&nbsp;&nbsp;Connect to ProShop</button>
@@ -360,23 +368,8 @@ body{font-family:var(--body);color:var(--text);display:flex;flex-direction:colum
     </button>
     <div class="preset-dropdown-menu" id="pdMenu">
       <div class="pdm-section">
-        <div class="pdm-label">Work Orders</div>
-        <div class="pdm-item" onclick="loadPreset('capacityOps')"><div class="pdm-dot" style="background:#f5920a"></div>Capacity Ops 2026<span class="pdm-sub">ops+schedule</span></div>
-        <div class="pdm-item" onclick="loadPreset('activeWOs')"><div class="pdm-dot" style="background:#0fc99e"></div>Active Work Orders<span class="pdm-sub">status+qty</span></div>
-        <div class="pdm-item" onclick="loadPreset('woFinancials')"><div class="pdm-dot" style="background:#2d9cdb"></div>WO Financials<span class="pdm-sub">est+actual+fmv</span></div>
-      </div>
-      <div class="pdm-section">
-        <div class="pdm-label">Machine & Operations</div>
-        <div class="pdm-item" onclick="loadPreset('wcLoaded')"><div class="pdm-dot" style="background:#7b65f5"></div>Work Center Load<span class="pdm-sub">run+setup hrs</span></div>
-        <div class="pdm-item" onclick="loadPreset('opEfficiency')"><div class="pdm-dot" style="background:#e05cf7"></div>Op Efficiency<span class="pdm-sub">budget vs actual</span></div>
-      </div>
-      <div class="pdm-section">
-        <div class="pdm-label">Workforce</div>
-        <div class="pdm-item" onclick="loadPreset('timeClock')"><div class="pdm-dot" style="background:#f5a623"></div>Time Clock / Users<span class="pdm-sub">attendance 2026</span></div>
-      </div>
-      <div class="pdm-section">
-        <div class="pdm-label">Custom</div>
-        <div class="pdm-item" onclick="addBlankTab()"><div class="pdm-dot" style="background:var(--text3)"></div>New Blank Query<span class="pdm-sub">empty editor</span></div>
+        <div class="pdm-label">Queries</div>
+        <div class="pdm-item" onclick="addBlankTab()"><div class="pdm-dot" style="background:var(--amber)"></div>New Blank Query<span class="pdm-sub">paste your query</span></div>
       </div>
       <div class="pdm-section" id="pdm_saved" style="display:none">
         <div class="pdm-label">Saved Queries ★</div>
@@ -401,7 +394,8 @@ body{font-family:var(--body);color:var(--text);display:flex;flex-direction:colum
 
 <div class="workspace" id="appWorkspace" style="display:none">
   <!-- SIDEBAR -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebarEl">
+    <div class="sidebar-resize" id="sidebarResize"></div>
     <div class="sidebar-sec">
       <div class="sidebar-lbl">Schema Reference</div>
     </div>
@@ -532,14 +526,7 @@ var AC_SNIPPETS=[
   {n:'timeClock(filter:{inOrOut:"In",punchDate:{greaterThanOrEqual:"2026-01-01T00:00:00Z"}},pageSize:500,pageStart:0){records{punchDate inOrOut}}',t:'Snippet',d:'Time clock filter'},
 ];
 
-var PRESETS={
-  capacityOps:{name:'Capacity Ops',color:'#f5920a',query:'query CapacityOps {\n  workOrders(\n    filter: { status: "Active" }\n    pageSize: 100\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      workOrderNumber\n      status\n      year\n      mustLeaveBy\n      dueDate\n      quantityOrdered\n      qtyComplete\n      qtyShipped\n      part { partNumber }\n      ops(pageSize: 200, pageStart: 0) {\n        records {\n          operationNumber\n          isOpComplete\n          runTime\n          runTimeSpent\n          setupTime\n          setupTimeSpent\n          workCenter { commonName department }\n        }\n      }\n    }\n  }\n}'},
-  activeWOs:{name:'Active WOs',color:'#0fc99e',query:'query ActiveWorkOrders {\n  workOrders(\n    filter: { status: "Active" }\n    pageSize: 50\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      workOrderNumber\n      status\n      year\n      mustLeaveBy\n      dueDate\n      quantityOrdered\n      qtyComplete\n      qtyShipped\n      part { partNumber }\n    }\n  }\n}'},
-  timeClock:{name:'Time Clock',color:'#f5a623',query:'{\n  users(\n    filter: { isActive: true }\n    pageSize: 100\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      id\n      firstName\n      lastName\n      emailAddress\n      payrollClassification\n      workShift\n      scheduledresourcedepartment\n      timeClock(\n        filter: {\n          inOrOut: "In"\n          punchDate: {\n            greaterThanOrEqual: "2026-01-01T00:00:00Z"\n            lessThanOrEqual: "2026-12-31T23:59:59Z"\n          }\n        }\n        pageSize: 500\n        pageStart: 0\n      ) {\n        totalRecords\n        records {\n          clockPunchId\n          inOrOut\n          punchDate\n          creationMachine\n        }\n      }\n    }\n  }\n}'},
-  woFinancials:{name:'WO Financials',color:'#2d9cdb',query:'query WOFinancials {\n  workOrders(\n    filter: { status: "Active", year: "2026" }\n    pageSize: 200\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      workOrderNumber\n      status\n      defaultRouting\n      dueDate\n      mustLeaveBy\n      year\n      partPlainText\n      part { partNumber }\n      customerPlainText\n      customerPONumberPlainText\n      quantityOrdered\n      qtyComplete\n      qtyShipped\n      qtyNotYetShipped\n      estWODollarAmount\n      actualDollarAmount\n      fairMarketValue\n    }\n  }\n}'},
-  wcLoaded:{name:'WC Load',color:'#7b65f5',query:'query WorkCenterLoaded {\n  workOrders(\n    filter: { status: "Active" }\n    pageSize: 100\n    pageStart: 0\n  ) {\n    totalRecords\n    records {\n      workOrderNumber\n      ops(pageSize: 200, pageStart: 0) {\n        records {\n          runTime\n          runTimeSpent\n          setupTime\n          setupTimeSpent\n          isOpComplete\n          workCenter { commonName department }\n        }\n      }\n    }\n  }\n}'},
-  opEfficiency:{name:'Op Efficiency',color:'#e05cf7',query:'query OperationEfficiency {\n  workOrders(\n    filter: { status: "Active" }\n    pageSize: 50\n    pageStart: 0\n  ) {\n    records {\n      workOrderNumber\n      ops(pageSize: 200, pageStart: 0) {\n        records {\n          operationNumber\n          isOpComplete\n          runTime\n          runTimeSpent\n          setupTime\n          setupTimeSpent\n          workCenter { commonName department }\n        }\n      }\n    }\n  }\n}'}
-};
+var PRESETS={};
 
 // ══ AUTH ══════════════════════════════════════════════════════════════
 function setMode(m){
@@ -592,7 +579,7 @@ function showApp(){
   document.getElementById('hdrUser').textContent=SESSION_USER;
   setRefresh(0);
   rebuildSavedMenu();
-  addTab(PRESETS.capacityOps);
+  addBlankTab();
 }
 async function doDisconnect(){
   if(SESSION_KEY){await fetch('/api/disconnect',{method:'POST',headers:{'x-session-key':SESSION_KEY}}).catch(function(){});SESSION_KEY=null;}
@@ -728,12 +715,59 @@ function destroyChartsFor(tid){
 }
 
 // ══ PANEL ════════════════════════════════════════════════════════════
+var _editorH=200; // default editor height
 function renderPanel(){
   var tab=tabs.find(function(t){return t.id===activeTabId;});if(!tab)return;
   destroyChartsFor(tab.id);
-  document.getElementById('mainPanel').innerHTML=buildEditorHTML(tab)+buildResultsHTML(tab);
+  var mp=document.getElementById('mainPanel');
+  mp.style.display='flex';mp.style.flexDirection='column';mp.style.overflow='hidden';mp.style.flex='1';
+  mp.innerHTML=buildEditorHTML(tab)
+    +'<div class="editor-results-splitter" id="erSplitter"></div>'
+    +'<div class="results-area" id="resultsArea" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">'+renderResultsArea(tab)+'</div>';
   initEditor(tab);
+  initSplitters();
   if(tab.state==='results')setTimeout(function(){initAllCharts(tab);},60);
+}
+function initSplitters(){
+  // ── Editor/Results vertical splitter ──
+  var splitter=document.getElementById('erSplitter');
+  var edWrap=document.querySelector('.editor-wrap');
+  if(splitter&&edWrap){
+    var drag=false,startY=0,startH=0;
+    splitter.addEventListener('mousedown',function(e){
+      drag=true;startY=e.clientY;startH=edWrap.offsetHeight;
+      splitter.classList.add('dragging');
+      document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove',function(e){
+      if(!drag)return;
+      var newH=Math.max(80,Math.min(600,startH+(e.clientY-startY)));
+      edWrap.style.height=newH+'px';edWrap.style.flexShrink='0';
+      _editorH=newH;
+      var eb=document.getElementById('editorBody');if(eb){var tb=edWrap.querySelector('.editor-topbar'),bb=edWrap.querySelector('.editor-bottom');var tbH=tb?tb.offsetHeight:36,bbH=bb?bb.offsetHeight:32;eb.style.height=Math.max(60,newH-tbH-bbH)+'px';}
+      updateLineNums(document.getElementById('codeTextarea')?document.getElementById('codeTextarea').value:'');
+    });
+    document.addEventListener('mouseup',function(){if(drag){drag=false;splitter.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';}});
+  }
+  // ── Sidebar horizontal splitter ──
+  var sbResize=document.getElementById('sidebarResize');
+  var sb=document.getElementById('sidebarEl');
+  if(sbResize&&sb){
+    var sdrag=false,sStartX=0,sStartW=0;
+    sbResize.addEventListener('mousedown',function(e){
+      sdrag=true;sStartX=e.clientX;sStartW=sb.offsetWidth;
+      sbResize.classList.add('dragging');
+      document.body.style.cursor='ew-resize';document.body.style.userSelect='none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove',function(e){
+      if(!sdrag)return;
+      var newW=Math.max(120,Math.min(420,sStartW+(e.clientX-sStartX)));
+      sb.style.width=newW+'px';
+    });
+    document.addEventListener('mouseup',function(){if(sdrag){sdrag=false;sbResize.classList.remove('dragging');document.body.style.cursor='';document.body.style.userSelect='';}});
+  }
 }
 
 function buildEditorHTML(tab){
@@ -772,9 +806,7 @@ function buildEditorHTML(tab){
     +'</div>';
 }
 
-function buildResultsHTML(tab){
-  return '<div class="results-area" id="resultsArea">'+renderResultsArea(tab)+'</div>';
-}
+// buildResultsHTML removed - results area now rendered directly in renderPanel
 
 // ══ ALTAIR EDITOR ENGINE ══════════════════════════════════════════════
 var acIdx=0,acVisible=false,acItems=[],editorResizeObs=null;
@@ -1071,9 +1103,15 @@ function renderResultsArea(tab){
   return renderResultsShell(tab);
 }
 function renderEmpty(){
-  return '<div class="empty-state"><div class="empty-title">Operations Intelligence</div>'
-    +'<div class="empty-sub">Load a preset from the All Presets dropdown or write a custom GraphQL query. Hit Run — every dataset auto-builds a live intelligence dashboard.</div>'
-    +'<div class="shortcut-pills">'+Object.keys(PRESETS).map(function(k){return '<div class="spill" onclick="loadPreset(\''+k+'\')">'+PRESETS[k].name+'</div>';}).join('')+'</div></div>';
+  return '<div class="empty-state">'
+    +'<div class="empty-title">Paste Your Query &amp; Run</div>'
+    +'<div class="empty-sub">Paste your GraphQL query into the editor above, then press <strong style="color:var(--amber)">Run</strong> or <strong style="color:var(--amber)">Ctrl+Enter</strong>. Your data will instantly build into a live intelligence dashboard.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center">'
+    +'<div class="spill" onclick="addBlankTab()">+ New Query Tab</div>'
+    +'<div class="spill" onclick="formatQuery()">Format Query</div>'
+    +'<div class="spill" onclick="copyQuery()">Copy Query</div>'
+    +'</div>'
+    +'</div>';
 }
 function renderResultsShell(tab){
   var rec=countRec(tab.rawData),ms=tab.rawData&&tab.rawData._meta&&tab.rawData._meta.ms||0;
