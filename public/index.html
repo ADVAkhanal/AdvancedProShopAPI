@@ -552,16 +552,31 @@ function setMode(m){
 async function doConnect(){
   var btn=document.getElementById('btnConnect'),err=document.getElementById('loginError');
   err.style.display='none';btn.disabled=true;btn.textContent='Connecting...';
-  var body={proshopRoot:document.getElementById('loginRoot').value.trim(),authMode:authMode};
+  var root=document.getElementById('loginRoot').value.trim();
+  // Normalize URL — strip trailing slash
+  root=root.replace(/\/+$/,'');
+  document.getElementById('loginRoot').value=root;
+  var body={proshopRoot:root,authMode:authMode};
   if(authMode==='password'){body.username=document.getElementById('loginUser').value.trim();body.password=document.getElementById('loginPass').value;body.scope=document.getElementById('loginScopePass').value.trim();}
   else{body.clientId=document.getElementById('loginClientId').value.trim();body.clientSecret=document.getElementById('loginClientSecret').value.trim();body.scope=document.getElementById('loginScopeCred').value.trim();}
   try{
     var r=await fetch('/api/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    var data=await r.json();
-    if(!r.ok||data.error)throw new Error(data.error||'Connection failed');
-    SESSION_KEY=data.sessionKey;SESSION_ROOT=body.proshopRoot;SESSION_USER=data.userName||body.clientId||body.username||'Operator';
+    var data;
+    try{data=await r.json();}catch(je){throw new Error('Backend returned non-JSON (HTTP '+r.status+'). Check that your Node server is running.');}
+    if(!r.ok||data.error)throw new Error(data.error||('HTTP '+r.status));
+    SESSION_KEY=data.sessionKey;SESSION_ROOT=root;SESSION_USER=data.userName||body.clientId||body.username||'Operator';
     showApp();
-  }catch(e){err.textContent=e.message;err.style.display='block';btn.disabled=false;btn.innerHTML='&#9654;&nbsp;&nbsp;Connect to ProShop';}
+  }catch(e){
+    var msg=e.message||String(e);
+    // Make common errors human-readable
+    if(msg.includes('Failed to fetch')||msg.includes('NetworkError')){msg='Cannot reach the local backend server. Make sure your Node.js server is running (npm start / node server.js).';}
+    else if(msg.includes('401')||msg.toLowerCase().includes('unauthorized')){msg='Invalid credentials. Check your username/password or client ID/secret.';}
+    else if(msg.includes('404')){msg='ProShop URL not found (404). Verify the URL: '+root;}
+    else if(msg.includes('ECONNREFUSED')){msg='Connection refused — ProShop server may be offline or the URL is wrong.';}
+    err.innerHTML='<strong>Connection failed:</strong> '+xh(msg)+'<br><small style="color:var(--text3);font-family:var(--mono)">URL tried: '+xh(root)+'/api/...</small>';
+    err.style.display='block';
+    btn.disabled=false;btn.innerHTML='&#9654;&nbsp;&nbsp;Connect to ProShop';
+  }
 }
 function showApp(){
   document.getElementById('loginScreen').style.display='none';
