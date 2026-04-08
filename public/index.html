@@ -619,7 +619,10 @@ function addBlankTab(){
   renderTabs();renderPanel();
 }
 function switchTab(id){
-  saveCurrentEditor();
+  // Snapshot current editor before switching
+  var ta=document.getElementById('codeTextarea'),ve=document.getElementById('varsInput');
+  var cur=tabs.find(function(t){return t.id===activeTabId;});
+  if(cur){if(ta)cur.query=ta.value;if(ve)cur.vars=ve.value;}
   activeTabId=id;renderTabs();renderPanel();
 }
 function closeTab(id,e){
@@ -691,8 +694,8 @@ function updateCountdown(){
   document.getElementById('rfCountdown').textContent='Next: '+(h>0?h+'h '+(m<10?'0':'')+m+'m':m>0?m+'m '+(s<10?'0':'')+s+'s':s+'s');
 }
 async function liveRefresh(){
-  saveCurrentEditor();
   var tab=tabs.find(function(t){return t.id===activeTabId;});if(!tab||!tab.query)return;
+  var ta=document.getElementById('codeTextarea');if(ta)tab.query=ta.value;
   var btn=document.getElementById('rfNow');if(btn){btn.disabled=true;btn.textContent='...';}
   await execQuery(tab);
   if(btn){btn.disabled=false;btn.innerHTML='&#8635; Refresh';}
@@ -753,15 +756,24 @@ function buildResultsHTML(tab){
 // ══ ALTAIR EDITOR ENGINE ══════════════════════════════════════════════
 var acIdx=0,acVisible=false,acItems=[],editorResizeObs=null;
 
+var _hlTimer=null,_lnTimer=null;
 function initEditor(tab){
   var ta=document.getElementById('codeTextarea');if(!ta)return;
   updateHighlight(ta.value);
   updateLineNums(ta.value);
   ta.addEventListener('input',function(){
-    updateHighlight(ta.value);
-    updateLineNums(ta.value);
+    // Line numbers: fast, debounce 80ms
+    clearTimeout(_lnTimer);
+    _lnTimer=setTimeout(function(){updateLineNums(ta.value);},80);
+    // Syntax highlight: expensive, debounce 300ms
+    clearTimeout(_hlTimer);
+    _hlTimer=setTimeout(function(){updateHighlight(ta.value);},300);
+    // Autocomplete: immediate but lightweight
     handleAC(ta);
     syncScroll(ta);
+    // Save to tab state immediately so Run always uses latest
+    var tab2=tabs.find(function(t){return t.id===activeTabId;});
+    if(tab2)tab2.query=ta.value;
   });
   ta.addEventListener('keydown',function(e){
     editorKeydown(e,ta);
@@ -972,17 +984,17 @@ function clearEditor(){var ta=document.getElementById('codeTextarea');if(ta){ta.
 
 // ══ RUN QUERY ════════════════════════════════════════════════════════
 async function runQuery(){
-  saveCurrentEditor();
+  // tab.query is kept live on every keystroke — no need to re-read DOM
   var tab=tabs.find(function(t){return t.id===activeTabId;});if(!tab)return;
+  // Grab latest from editor directly as final snapshot
+  var ta=document.getElementById('codeTextarea');if(ta)tab.query=ta.value;
   var btn=document.getElementById('btnRun');if(btn){btn.disabled=true;btn.innerHTML='&#8635; Running...';}
-  // Auto-name tab from query
   var m=tab.query.match(/(?:query|mutation)\s+(\w+)/i);if(m&&!tab.name)tab.defaultName=m[1];
   tab.state='loading';tab.rawData=null;renderTabs();
   var ra=document.getElementById('resultsArea');
   var t0=Date.now();
   if(ra)ra.innerHTML='<div class="loading-state"><div class="spinner"></div><div class="loading-lbl">Querying ProShop</div><div class="loading-timing" id="runTimer">0ms</div></div>';
-  // Live timer
-  var timerInt=setInterval(function(){var el=document.getElementById('runTimer');if(el)el.textContent=Math.round(Date.now()-t0)+'ms';},50);
+  var timerInt=setInterval(function(){var el=document.getElementById('runTimer');if(el)el.textContent=Math.round(Date.now()-t0)+'ms';},100);
   await execQuery(tab,t0);
   clearInterval(timerInt);
   if(btn){btn.disabled=false;btn.innerHTML='&#9654; Run <span class="kbd">Ctrl+&#9166;</span>';}
