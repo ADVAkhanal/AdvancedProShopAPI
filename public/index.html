@@ -317,8 +317,8 @@ body{font-family:var(--body);color:var(--text);display:flex;flex-direction:colum
       <label class="form-label">Password</label>
       <input id="loginPass" class="form-input" type="password" placeholder="••••••••••••" autocomplete="current-password">
       <label class="form-label">Scope</label>
-      <input id="loginScopePass" class="form-input mono" value="approvals:rwdp auditreports:rwdp bills:rwdp classifications:rwdp companypositions:rwdp contacts:rwdp correctiveactionrequests:rwdp customerpo:rwdp customersurveys:rwdp documents:rwdp editlogs:rwdp equipment:rwdp estimatearchives:rwdp estimates:rwdp fixtures:rwdp formats:rwdp invoices:rwdp messages:rwdp nonconformancereports:rwdp ots:rwdp packingslips:rwdp partarchives:rwdp parts:rwdp preventiveactionrequests:rwdp purchaseorders:rwdp qualitymanuals:rwdp qualityprocedures:rwdp quotes:rwdp returnmaterialauthorization:rwdp rtas:rwdp standards:rwdp taskstable:rwdp toolpots:rwdp tools:rwdp trainings:rwdp users:rwdp workorders:rwdp securityadmin systemconfig sensitivedata itarokay:o">
-      <p class="scope-hint">Full scope pre-loaded. Reduce if your instance requires restricted access.</p>
+      <input id="loginScopePass" class="form-input mono" value="workorders:rw parts:r users:r contacts:r invoices:r timeclock:r">
+      <p class="scope-hint">Space-delimited. e.g.: workorders:rw parts:r users:r contacts:r</p>
     </div>
     <div id="fieldsCred" style="display:none">
       <label class="form-label">Client ID</label>
@@ -326,8 +326,8 @@ body{font-family:var(--body);color:var(--text);display:flex;flex-direction:colum
       <label class="form-label">Client Secret</label>
       <input id="loginClientSecret" class="form-input mono" type="password" placeholder="64-char hex secret">
       <label class="form-label">Scope</label>
-      <input id="loginScopeCred" class="form-input mono" value="approvals:rwdp auditreports:rwdp bills:rwdp classifications:rwdp companypositions:rwdp contacts:rwdp correctiveactionrequests:rwdp customerpo:rwdp customersurveys:rwdp documents:rwdp editlogs:rwdp equipment:rwdp estimatearchives:rwdp estimates:rwdp fixtures:rwdp formats:rwdp invoices:rwdp messages:rwdp nonconformancereports:rwdp ots:rwdp packingslips:rwdp partarchives:rwdp parts:rwdp preventiveactionrequests:rwdp purchaseorders:rwdp qualitymanuals:rwdp qualityprocedures:rwdp quotes:rwdp returnmaterialauthorization:rwdp rtas:rwdp standards:rwdp taskstable:rwdp toolpots:rwdp tools:rwdp trainings:rwdp users:rwdp workorders:rwdp securityadmin systemconfig sensitivedata itarokay:o">
-      <p class="scope-hint">Full scope pre-loaded. Leave blank for server-default.</p>
+      <input id="loginScopeCred" class="form-input mono" value="workorders:rw parts:r users:r contacts:r invoices:r timeclock:r">
+      <p class="scope-hint">Leave blank for server-default scope.</p>
     </div>
     <button class="btn-connect" id="btnConnect" onclick="doConnect()">&#9654;&nbsp;&nbsp;Connect to ProShop</button>
     <div class="login-error" id="loginError"></div>
@@ -562,7 +562,11 @@ async function doConnect(){
   try{
     var r=await fetch('/api/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     var data;
-    try{data=await r.json();}catch(je){throw new Error('Backend returned non-JSON (HTTP '+r.status+'). Check that your Node server is running.');}
+    try{data=await r.json();}catch(je){
+      var status=r.status;
+      if(status===413)throw new Error('413 Payload Too Large — your Scope field is too long. Shorten it and try again.');
+      throw new Error('Backend returned non-JSON (HTTP '+status+'). Is your Node server running?');
+    }
     if(!r.ok||data.error)throw new Error(data.error||('HTTP '+r.status));
     SESSION_KEY=data.sessionKey;SESSION_ROOT=root;SESSION_USER=data.userName||body.clientId||body.username||'Operator';
     showApp();
@@ -709,10 +713,14 @@ function updateCountdown(){
   document.getElementById('rfCountdown').textContent='Next: '+(h>0?h+'h '+(m<10?'0':'')+m+'m':m>0?m+'m '+(s<10?'0':'')+s+'s':s+'s');
 }
 async function liveRefresh(){
+  var check=canQuery();
+  if(!check.ok){toast('⏳ '+check.msg);return;}
   var tab=tabs.find(function(t){return t.id===activeTabId;});if(!tab||!tab.query)return;
   var ta=document.getElementById('codeTextarea');if(ta)tab.query=ta.value;
   var btn=document.getElementById('rfNow');if(btn){btn.disabled=true;btn.textContent='...';}
+  _queryInFlight=true;_lastQueryTime=Date.now();
   await execQuery(tab);
+  _queryInFlight=false;
   if(btn){btn.disabled=false;btn.innerHTML='&#8635; Refresh';}
 }
 function destroyChartsFor(tid){
@@ -997,11 +1005,25 @@ function prettyGQL(q){
 }
 function clearEditor(){var ta=document.getElementById('codeTextarea');if(ta){ta.value='';updateHighlight('');updateLineNums('');}}
 
+// ══ RATE LIMITER — protects ProShop from too-many-requests ═══════════
+var _lastQueryTime=0,_queryInFlight=false;
+var MIN_QUERY_INTERVAL=2000; // minimum 2 seconds between any queries
+
+function canQuery(){
+  if(_queryInFlight)return{ok:false,msg:'A query is already running. Please wait.'};
+  var since=Date.now()-_lastQueryTime;
+  if(since<MIN_QUERY_INTERVAL){
+    var wait=Math.ceil((MIN_QUERY_INTERVAL-since)/1000);
+    return{ok:false,msg:'Please wait '+wait+'s before running another query (rate limit protection).'};
+  }
+  return{ok:true};
+}
+
 // ══ RUN QUERY ════════════════════════════════════════════════════════
 async function runQuery(){
-  // tab.query is kept live on every keystroke — no need to re-read DOM
+  var check=canQuery();
+  if(!check.ok){toast('⏳ '+check.msg);return;}
   var tab=tabs.find(function(t){return t.id===activeTabId;});if(!tab)return;
-  // Grab latest from editor directly as final snapshot
   var ta=document.getElementById('codeTextarea');if(ta)tab.query=ta.value;
   var btn=document.getElementById('btnRun');if(btn){btn.disabled=true;btn.innerHTML='&#8635; Running...';}
   var m=tab.query.match(/(?:query|mutation)\s+(\w+)/i);if(m&&!tab.name)tab.defaultName=m[1];
@@ -1010,7 +1032,9 @@ async function runQuery(){
   var t0=Date.now();
   if(ra)ra.innerHTML='<div class="loading-state"><div class="spinner"></div><div class="loading-lbl">Querying ProShop</div><div class="loading-timing" id="runTimer">0ms</div></div>';
   var timerInt=setInterval(function(){var el=document.getElementById('runTimer');if(el)el.textContent=Math.round(Date.now()-t0)+'ms';},100);
+  _queryInFlight=true;_lastQueryTime=Date.now();
   await execQuery(tab,t0);
+  _queryInFlight=false;
   clearInterval(timerInt);
   if(btn){btn.disabled=false;btn.innerHTML='&#9654; Run <span class="kbd">Ctrl+&#9166;</span>';}
 }
