@@ -608,20 +608,21 @@ document.addEventListener('click',function(e){
 // ══ TABS ══════════════════════════════════════════════════════════════
 function addTab(preset){
   tabCounter++;
-  var p=preset||PRESETS.capacityOps,id='t'+tabCounter;
+  var p=preset||{name:'Query '+tabCounter,color:'#f5920a',query:''};
+  var id='t'+tabCounter;
   tabs.push({id:id,name:'',color:p.color||'#f5920a',query:p.query||'',defaultName:p.name||('Query '+tabCounter),state:'idle',resultView:'dashboard',rawData:null,errorMsg:null,renaming:false,vars:''});
   activeTabId=id;
-  document.getElementById('pdMenu').classList.remove('open');
-  document.getElementById('pdBtn').classList.remove('open');
+  var pm=document.getElementById('pdMenu'),pb=document.getElementById('pdBtn');
+  if(pm)pm.classList.remove('open');if(pb)pb.classList.remove('open');
   renderTabs();renderPanel();
 }
 function addBlankTab(){
   tabCounter++;
   var id='t'+tabCounter;
-  tabs.push({id:id,name:'',color:'#9aa3c2',query:'query {\n  workOrders(filter: { status: "Active" }, pageSize: 20, pageStart: 0) {\n    totalRecords\n    records {\n      workOrderNumber\n      status\n    }\n  }\n}',defaultName:'Query '+tabCounter,state:'idle',resultView:'dashboard',rawData:null,errorMsg:null,renaming:false,vars:''});
+  tabs.push({id:id,name:'',color:'#f5920a',query:'',defaultName:'Query '+tabCounter,state:'idle',resultView:'dashboard',rawData:null,errorMsg:null,renaming:false,vars:''});
   activeTabId=id;
-  document.getElementById('pdMenu').classList.remove('open');
-  document.getElementById('pdBtn').classList.remove('open');
+  var pm=document.getElementById('pdMenu'),pb=document.getElementById('pdBtn');
+  if(pm)pm.classList.remove('open');if(pb)pb.classList.remove('open');
   renderTabs();renderPanel();
 }
 function switchTab(id){
