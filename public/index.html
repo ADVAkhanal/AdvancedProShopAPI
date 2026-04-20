@@ -641,23 +641,33 @@ function isNumLike(v){return v!=null&&v!==''&&!isNaN(parseFloat(v));}
 // ═════════════════════════════════════════════════════════════════════
 // DATA EXTRACTION — handles both list and single-object queries
 // ═════════════════════════════════════════════════════════════════════
-function countRec(d){if(!d||!d.data)return 0;var n=0;function w(o){if(!o||typeof o!=='object')return;if(Array.isArray(o)){n+=o.length;o.forEach(w);}else{if(Array.isArray(o.records))n+=o.records.length;Object.values(o).forEach(w);}}w(d.data);return n;}
-
 function getRecords(d){
   if(!d||!d.data)return[];
-  // Single object query (workOrder { ... }): wrap in array
-  for(var k in d.data){
-    var v=d.data[k];
-    if(v&&typeof v==='object'&&!Array.isArray(v)&&!Array.isArray(v.records)){
-      if(v.workOrderNumber||v.partNumber||v.firstName){
-        return [v];
-      }
+  var data=d.data;
+  // Unwrap accidentally double-wrapped data
+  if(data.data&&typeof data.data==='object'&&!Array.isArray(data.data))data=data.data;
+  // Iterate top-level keys of data (skip _meta and similar)
+  for(var k in data){
+    if(k==='_meta'||k.startsWith('__'))continue;
+    var v=data[k];
+    if(v==null)continue;
+    // Case A: direct array, e.g. workOrders: [...]
+    if(Array.isArray(v))return v;
+    if(typeof v!=='object')continue;
+    // Case B: { records: [...] } — standard paginated list
+    if(Array.isArray(v.records))return v.records;
+    // Case C: single object with identifying fields — wrap in array
+    if(v.workOrderNumber||v.partNumber||v.firstName||v.lastName||v.emailAddress||v.customerNumber||v.id){
+      return [v];
     }
   }
-  // List query
-  function w(o){if(!o||typeof o!=='object')return null;if(Array.isArray(o.records))return o.records;for(var k in o){var r=w(o[k]);if(r)return r;}return null;}
-  return w(d.data)||[];
+  // Last resort: recursive search for any records[] array
+  function w(o){if(!o||typeof o!=='object')return null;if(Array.isArray(o.records))return o.records;for(var k in o){if(k==='_meta'||k.startsWith('__'))continue;var r=w(o[k]);if(r)return r;}return null;}
+  return w(data)||[];
 }
+
+// Keep countRec consistent with getRecords so the badge matches what's rendered
+function countRec(d){return getRecords(d).length;}
 
 // Support both ops.records (nested) and ops (flat array)
 function getOps(r){
@@ -947,13 +957,16 @@ async function execQuery(tab,t0){
     if(r.status===401){var e2=await r.json();throw new Error(e2.error||'Session expired');}
     var data=await r.json();var ms=Date.now()-t0;
     data._meta={ms:ms};tab.rawData=data;tab.state='results';
+    // Surface errors: backend `error` string, GraphQL `errors` array, or missing data
     if(data.error){tab.state='error';tab.errorMsg=data.error;}
+    else if(data.errors&&data.errors.length){tab.state='error';tab.errorMsg='GraphQL errors:\n'+data.errors.map(function(e){return '• '+(e.message||JSON.stringify(e));}).join('\n');}
+    else if(!data.data){tab.state='error';tab.errorMsg='Response has no data field. Raw response:\n'+JSON.stringify(data,null,2).substring(0,800);}
     document.getElementById('rfLast').textContent='Last: '+new Date().toLocaleTimeString();
     var hi=document.getElementById('hdrInfo');
     if(hi)hi.innerHTML='Status: <span style="color:var(--volt)">200 OK</span>\nTime: <span style="color:var(--forge2)">'+ms+'ms</span>\nRecords: <span style="color:var(--plasma)">'+countRec(data)+'</span>\nQuery: <span style="color:var(--ghost2)">'+tab.query.length+' chars</span>';
     renderTabs();destroyCharts(tab.id);
     var rz=document.getElementById('resZone');
-    if(rz){rz.innerHTML=tab.state==='error'?'<div class="err-banner">'+xh(data.error)+'</div>':renderResultsShell(tab);if(tab.state==='results')setTimeout(()=>initCharts(tab),60);}
+    if(rz){rz.innerHTML=tab.state==='error'?'<div class="err-banner">'+xh(tab.errorMsg)+'</div>':renderResultsShell(tab);if(tab.state==='results')setTimeout(()=>initCharts(tab),60);}
     if(typeof updateAIContext==='function')updateAIContext(tab);
   }catch(e){
     tab.state='error';tab.errorMsg=e.message;renderTabs();
@@ -1340,7 +1353,10 @@ function renderJSON(tab){var d=Object.assign({},tab.rawData);delete d._meta;retu
 // ═════════════════════════════════════════════════════════════════════
 function renderDashboard(tab){
   var records=getRecords(tab.rawData);
-  if(!records.length)return'<div class="empty-state"><div class="empty-title">No Records</div><div class="empty-sub">Query ran but returned no data. Adjust your filters.</div></div>';
+  if(!records.length){
+    var preview=tab.rawData?JSON.stringify(tab.rawData,null,2).substring(0,1200):'(no data)';
+    return'<div class="empty-state"><div class="empty-title">No Records Detected</div><div class="empty-sub">The query succeeded but FORGE could not extract a records list from the response shape. Switch to the <strong>JSON</strong> tab above to see the raw response, or inspect the preview below.</div><pre style="margin-top:12px;padding:12px;background:var(--void2);border:1px solid var(--rule2);font-family:var(--mono);font-size:10px;color:var(--ghost2);text-align:left;max-width:700px;max-height:260px;overflow:auto;white-space:pre-wrap;">'+xh(preview)+(preview.length>=1200?'\n\n... (truncated)':'')+'</pre></div>';
+  }
   var f=detect(records),tid=tab.id;
   var allOps=records.flatMap(getOps);
   var html='<div class="dash-wrap">';
